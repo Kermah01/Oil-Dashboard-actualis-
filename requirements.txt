@@ -1,0 +1,16 @@
+scikit-learn==1.3.2
+pandas
+numpy
+plotly
+streamlit==1.30.0
+seaborn
+matplotlib
+openpyxl
+scipy
+joblib
+streamlit-extras
+nltk
+wordcloud
+regex
+unidecode
+st-gsheets-connection
