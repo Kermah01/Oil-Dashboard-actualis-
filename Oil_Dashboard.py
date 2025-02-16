@@ -325,12 +325,74 @@ with hist:
     fig_histogram.update_xaxes(showticklabels=False)
     st.plotly_chart(fig_histogram,use_container_width=True)
 
+st.subheader("Analyse de l'évolution de la production et de la vente")
+
+grandeurs_mapping = {
+    "Production de Gaz": [col for col in df.columns if "Prod Gaz" in col],
+    "Production de Pétrole": [col for col in df.columns if "Prod. Pétrole" in col],
+    "Vente de Gaz": [col for col in df.columns if "Vente Gaz" in col]
+}
+
+# 📌 Sélection de la grandeur à afficher
+grandeur_selectionnee = st.selectbox("📊 Sélectionnez une grandeur :", list(grandeurs_mapping.keys()))
+
+# 📌 Option : Affichage par bloc ou somme totale
+mode_affichage = st.radio("🔎 Mode d'affichage :", ["Valeur par bloc", "Somme totale"])
+
+# 📌 Récupérer les colonnes associées à la grandeur choisie
+colonnes_a_utiliser = grandeurs_mapping[grandeur_selectionnee]
+
+# 📌 Extraction de l'année depuis le nom des colonnes
+annees = [int("".join(filter(str.isdigit, col))) for col in colonnes_a_utiliser]
+
+# 📌 Création d'un DataFrame pour le graphique
+df_temps = df[['Blocs'] + colonnes_a_utiliser].copy()
+df_temps.columns = ['Blocs'] + annees  # Renommage avec les années
+
+# 📌 Transformation des données pour affichage avec Plotly
+df_melted = df_temps.melt(id_vars="Blocs", var_name="Année", value_name="Valeur")
+
+# 📌 Filtrer les blocs avec au moins une valeur
+df_melted = df_melted[df_melted["Valeur"] > 0]
+
+# 📌 Création du graphique avec un meilleur design
+if mode_affichage == "Valeur par bloc":
+    fig = px.line(
+        df_melted, 
+        x="Année", 
+        y="Valeur", 
+        color="Blocs",
+        title=f"📈 Évolution de {grandeur_selectionnee} par bloc",
+        markers=True,
+        line_shape='spline',  # Lignes plus douces
+        template='plotly_dark'  # Thème sombre élégant
+    )
+else:
+    df_summed = df_melted.groupby("Année")["Valeur"].sum().reset_index()
+    fig = px.line(
+        df_summed, 
+        x="Année", 
+        y="Valeur",
+        title=f"📊 Évolution de la somme de {grandeur_selectionnee}",
+        markers=True,
+        line_shape='spline',
+        template='plotly_dark'
+    )
+
+# 📌 Personnalisation du graphique
+fig.update_traces(
+    line=dict(width=3),  # Lignes plus épaisses
+    marker=dict(size=8, symbol="circle")  # Marqueurs plus visibles
+)
+
+# 📌 Amélioration du design global
+fig.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
+
+# 📌 Affichage du graphique
+st.plotly_chart(fig, use_container_width=True)
 
 # Section des analyses croisées
 st.subheader("Analyse graphique avec deux variables croisées")
-
-
-
 
 #Type de l'histogramme croisé
 def barmode_selected(t):
