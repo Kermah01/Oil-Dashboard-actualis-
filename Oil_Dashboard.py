@@ -331,56 +331,44 @@ st.subheader("Analyse graphique avec deux variables croisées")
 
 
 
-quant,qual=st.columns(2,gap='medium')
+
+#Type de l'histogramme croisé
+def barmode_selected(t):
+    if t =='empilé':
+        a='relative'  
+    else: 
+        a='group'
+    return a
 
 
-with quant:
-    st.subheader("ANALYSE CROISEE ENTRE VARIABLES NUMERIQUES")
-    int_columns = df.select_dtypes(include="int").columns
-    float_columns = df.select_dtypes(include="float").columns
-    selected_variable_3 = st.selectbox("***Variable 1***", int_columns.union(float_columns))
-    selected_variable_4 = st.selectbox("***Variable 2***",int_columns.union(float_columns),index=2)
-    fig_scatter_matrix = px.scatter(df, x=selected_variable_3, y=selected_variable_4)
-    fig_scatter_matrix.update_layout(title=f'Nuage de points entre {selected_variable_3} et {selected_variable_4}')
-    fig_scatter_matrix.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.15)
-    st.plotly_chart(fig_scatter_matrix, use_container_width=True)
+st.subheader("ANALYSE CROISEE ENTRE VARIABLES CATEGORIELLES")
+selected_variable_1 = st.selectbox("***Variable 1***", ['Type de profondeur', 'Opérateur1',
+'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
+'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
+'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 
+'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", 
+"Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=7)
+selected_variable_2 = st.selectbox("***Variable 2***", ['Type de profondeur', 'Opérateur1',
+'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
+'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
+'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 
+'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", 
+"Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1',
+'Année  de fin de validité exploitation 1'],index=1)
+st.sidebar.write(" ")
+st.sidebar.write(" ")
+st.sidebar.subheader("PARAMETRES DES GRAPHIQUES")
+type_graph=st.sidebar.radio("***:grey[Choisissez le type d'histogramme croisé]***", ['empilé','étalé'], index=1)
+if selected_variable_2 in [f"Prod Gaz N. {i} MMSCF" for i in range(2018,2023)] + [f"Prod. Pétrole {i} Bbls" for i in range(2018,2023)]:
+    fig_croisé = px.bar(df.groupby(selected_variable_1)[selected_variable_2].sum().reset_index(), x=selected_variable_1,y=selected_variable_2, color=selected_variable_2,barmode=barmode_selected(type_graph),color_continuous_scale=['red', 'yellow', 'green'],range_color=[0, 5])
+else:
+    fig_croisé = px.histogram(df, x=selected_variable_1, color=selected_variable_2,barmode=barmode_selected(type_graph),color_discrete_sequence= colors)
+    m=['Mois  de signature du 1er CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1']
+    if selected_variable_1 in m or selected_variable_2 in m:
+        fig_croisé.update_xaxes(categoryorder='array', categoryarray=order_of_months)
+fig_croisé.update_layout(title=f'Graphique en barres groupées - {selected_variable_1 } vs {selected_variable_2 }')
+fig_croisé.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
 
-
-with qual:
-    #Type de l'histogramme croisé
-    def barmode_selected(t):
-        if t =='empilé':
-            a='relative'  
-        else: 
-            a='group'
-        return a
-    
-    st.subheader("ANALYSE CROISEE ENTRE VARIABLES CATEGORIELLES")
-    selected_variable_1 = st.selectbox("***Variable 1***", ['Type de profondeur', 'Opérateur1',
-    'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-    'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=1)
-    selected_variable_2 = st.selectbox("***Variable 2***", ['Type de profondeur', 'Opérateur1',
-    'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-    'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 
-    'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", 
-    "Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1',
-    'Année  de fin de validité exploitation 1'],index=2)
-    st.sidebar.write(" ")
-    st.sidebar.write(" ")
-    st.sidebar.subheader("PARAMETRES DES GRAPHIQUES")
-    type_graph=st.sidebar.radio("***:grey[Choisissez le type d'histogramme croisé]***", ['empilé','étalé'])
-    if selected_variable_2 in [f"Prod Gaz N. {i} MMSCF" for i in range(2018,2023)] or [f"Prod. Pétrole {i} Bbls" for i in range(2018,2023)]:
-        fig_croisé = px.bar(df.groupby(selected_variable_1)[selected_variable_2].sum().reset_index(), x=selected_variable_1,y=selected_variable_2, color=selected_variable_2,barmode=barmode_selected(type_graph),color_continuous_scale=['red', 'yellow', 'green'],range_color=[0, 5])
-    else:
-        fig_croisé = px.bar(df, x=selected_variable_1, color=selected_variable_2,barmode=barmode_selected(type_graph),color_discrete_sequence= colors)
-        m=['Mois  de signature du 1er CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1']
-        if selected_variable_1 in m or selected_variable_2 in m:
-            fig_croisé.update_xaxes(categoryorder='array', categoryarray=order_of_months)
-    fig_croisé.update_layout(title=f'Graphique en barres groupées - {selected_variable_1 } vs {selected_variable_2 }')
-    fig_croisé.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
-
-    st.plotly_chart(fig_croisé,use_container_width=True)
+st.plotly_chart(fig_croisé)
 
 
