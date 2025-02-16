@@ -36,6 +36,7 @@ st.sidebar.image('https://static.vecteezy.com/system/resources/thumbnails/010/24
 st.sidebar.subheader("Cabinet du Ministre de l'Economie, du Plan et du Développement", divider="orange")
 
  #Définition des ordres de mois et des jours
+ #Définition des ordres de mois et des jours
 order_of_months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 dic_month={1:"Janvier",2:"Février",3:"Mars",4:"Avril",5:"Mai",6:"Juin",7:"Juillet",8:"Août",9:"Septembre",10:"Octobre",11:"Novembre",12:"Décembre"}
 order_of_days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -328,9 +329,9 @@ with hist:
 st.subheader("Analyse de l'évolution de la production et de la vente")
 
 grandeurs_mapping = {
-    "Production de Gaz": [col for col in df.columns if "Prod Gaz" in col],
-    "Production de Pétrole": [col for col in df.columns if "Prod. Pétrole" in col],
-    "Vente de Gaz": [col for col in df.columns if "Vente Gaz" in col]
+    "Production de Gaz (en MMSCF)": [col for col in df.columns if "Prod Gaz" in col],
+    "Production de Pétrole(en Bbls)": [col for col in df.columns if "Prod. Pétrole" in col],
+    "Vente de Gaz (en MMBTU)": [col for col in df.columns if "Vente Gaz" in col]
 }
 
 # 📌 Sélection de la grandeur à afficher
@@ -381,7 +382,7 @@ else:
 
 # 📌 Personnalisation du graphique
 fig.update_traces(
-    line=dict(width=3),  # Lignes plus épaisses
+    line=dict(width=5),  # Lignes plus épaisses
     marker=dict(size=8, symbol="circle")  # Marqueurs plus visibles
 )
 
@@ -392,8 +393,8 @@ fig.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 
 st.plotly_chart(fig, use_container_width=True)
 
 # Section des analyses croisées
-st.subheader("Analyse graphique avec deux variables croisées")
 
+st.subheader("Analyse croisée entre variables catégorielles")
 #Type de l'histogramme croisé
 def barmode_selected(t):
     if t =='empilé':
@@ -403,7 +404,7 @@ def barmode_selected(t):
     return a
 
 
-st.subheader("ANALYSE CROISEE ENTRE VARIABLES CATEGORIELLES")
+
 selected_variable_1 = st.selectbox("***Variable 1***", ['Type de profondeur', 'Opérateur1',
 'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
 'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
@@ -431,6 +432,9 @@ else:
 fig_croisé.update_layout(title=f'Graphique en barres groupées - {selected_variable_1 } vs {selected_variable_2 }')
 fig_croisé.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
 
-st.plotly_chart(fig_croisé)
+st.plotly_chart(fig_croisé,  use_container_width=True)
+
+
+
 
 
