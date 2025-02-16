@@ -307,8 +307,21 @@ with cam:
     'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
     'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
     'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc'], index=1)
-    category_counts = df[selected_categorical_variable_p].value_counts()
-    fig_pie = px.pie(names=['Bloc 1', 'Bloc 2', 'Bloc3'], values=[14, 36, 50], title=f"Répartition de la variable {selected_categorical_variable_p}",color_discrete_sequence=colors)
+    df_counts = df[selected_categorical_variable_p].value_counts().reset_index()
+    df_counts.columns = ['Category', 'Count']
+
+    # 📌 Création du camembert avec `go.Figure`
+    fig_pie = go.Figure(
+        data=[
+            go.Pie(
+                labels=df_counts['Category'], 
+                values=df_counts['Count'],
+                marker=dict(
+                    colors=colors,
+                ),
+            )
+        ]
+    )
     fig_pie.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.25)
     st.plotly_chart(fig_pie, use_container_width=True)
 
