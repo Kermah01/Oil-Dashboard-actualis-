@@ -311,7 +311,7 @@ with cam:
     fig_pie = px.pie(names=category_counts.index, values=category_counts.values, title=f"Répartition de la variable {selected_categorical_variable_p}",color_discrete_sequence=colors)
     fig_pie.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.25)
     st.plotly_chart(fig_pie, use_container_width=True)
-
+print((df["Blocs"][1], df["Statut du bloc"][1]))
 with hist:
     st.subheader("HISTOGRAMME")
     selected_categorical_variable = st.selectbox("***Sélectionnez la variable catégorielle pour l'histogramme***",['Type de profondeur', 'Opérateur1',
