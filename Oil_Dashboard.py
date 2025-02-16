@@ -329,9 +329,9 @@ with hist:
 st.subheader("Analyse de l'évolution de la production et de la vente")
 
 grandeurs_mapping = {
-    "Production de Gaz (en MMSCF)": [col for col in df.columns if "Prod Gaz" in col],
-    "Production de Pétrole(en Bbls)": [col for col in df.columns if "Prod. Pétrole" in col],
-    "Vente de Gaz (en MMBTU)": [col for col in df.columns if "Vente Gaz" in col]
+    "Production de Gaz": [col for col in df.columns if "Prod Gaz" in col],
+    "Production de Pétrole": [col for col in df.columns if "Prod. Pétrole" in col],
+    "Vente de Gaz": [col for col in df.columns if "Vente Gaz" in col]
 }
 
 # 📌 Sélection de la grandeur à afficher
