@@ -8,6 +8,7 @@ import json
 from pyecharts.charts import Pie
 from pyecharts import options as opts
 from streamlit_echarts import st_pyecharts
+from pyecharts.charts import Line
 import openpyxl
 from openpyxl import load_workbook
 import altair as alt
@@ -370,69 +371,93 @@ with hist:
 
 st.subheader("Analyse de l'évolution de la production et de la vente")
 
+# 📌 Définition des grandeurs à analyser
 grandeurs_mapping = {
-    "Production de Gaz": [col for col in df.columns if "Prod Gaz" in col],
-    "Production de Pétrole": [col for col in df.columns if "Prod. Pétrole" in col],
-    "Vente de Gaz": [col for col in df.columns if "Vente Gaz" in col]
+    "Production de Gaz (en MMSCF)": [col for col in df.columns if "Prod Gaz" in col],
+    "Production de Pétrole (en Bbls)": [col for col in df.columns if "Prod. Pétrole" in col],
+    "Vente de Gaz (en MMBTU)": [col for col in df.columns if "Vente Gaz" in col]
 }
 
-# 📌 Sélection de la grandeur à afficher
+# 📌 Sélection de la grandeur
 grandeur_selectionnee = st.selectbox("📊 Sélectionnez une grandeur :", list(grandeurs_mapping.keys()))
 
-# 📌 Option : Affichage par bloc ou somme totale
+# 📌 Option d'affichage
 mode_affichage = st.radio("🔎 Mode d'affichage :", ["Valeur par bloc", "Somme totale"])
 
 # 📌 Récupérer les colonnes associées à la grandeur choisie
 colonnes_a_utiliser = grandeurs_mapping[grandeur_selectionnee]
 
-# 📌 Extraction de l'année depuis le nom des colonnes
-annees = [int("".join(filter(str.isdigit, col))) for col in colonnes_a_utiliser]
+# 📌 Extraction des années
+annees = [str(int("".join(filter(str.isdigit, col)))) for col in colonnes_a_utiliser]
 
-# 📌 Création d'un DataFrame pour le graphique
+# 📌 Création du DataFrame pour PyEcharts
 df_temps = df[['Blocs'] + colonnes_a_utiliser].copy()
-df_temps.columns = ['Blocs'] + annees  # Renommage avec les années
+df_temps.columns = ['Blocs'] + annees  # Renommage des colonnes
 
-# 📌 Transformation des données pour affichage avec Plotly
+# 📌 Transformation des données pour affichage avec PyEcharts
 df_melted = df_temps.melt(id_vars="Blocs", var_name="Année", value_name="Valeur")
+df_melted = df_melted[df_melted["Valeur"] > 0]  # Supprimer les valeurs nulles
 
-# 📌 Filtrer les blocs avec au moins une valeur
-df_melted = df_melted[df_melted["Valeur"] > 0]
-
-# 📌 Création du graphique avec un meilleur design
-if mode_affichage == "Valeur par bloc":
-    fig = px.line(
-        df_melted, 
-        x="Année", 
-        y="Valeur", 
-        color="Blocs",
-        title=f"📈 Évolution de {grandeur_selectionnee} par bloc",
-        markers=True,
-        line_shape='spline',  # Lignes plus douces
-        template='plotly_dark'  # Thème sombre élégant
-    )
+# 🚨 Vérification s'il y a des données à afficher
+if df_melted.empty:
+    st.warning(f"Aucune donnée disponible pour {grandeur_selectionnee}. Veuillez choisir une autre grandeur.")
 else:
-    df_summed = df_melted.groupby("Année")["Valeur"].sum().reset_index()
-    fig = px.line(
-        df_summed, 
-        x="Année", 
-        y="Valeur",
-        title=f"📊 Évolution de la somme de {grandeur_selectionnee}",
-        markers=True,
-        line_shape='spline',
-        template='plotly_dark'
+    # 📌 Création du graphique PyEcharts avec plus de hauteur et légende à droite
+    line_chart = Line(init_opts=opts.InitOpts(
+        width="100%", height="2500px", bg_color="rgba(0,0,0,0.3)"
+    ))
+
+    line_chart.add_xaxis(df_melted["Année"].unique().tolist())  # Ajout des années
+
+    # 📌 Mode d'affichage par bloc
+    if mode_affichage == "Valeur par bloc":
+        for bloc in df_melted["Blocs"].unique():
+            df_bloc = df_melted[df_melted["Blocs"] == bloc]
+            line_chart.add_yaxis(
+                bloc, df_bloc["Valeur"].tolist(),
+                is_smooth=True,
+                linestyle_opts=opts.LineStyleOpts(width=3),
+                label_opts=opts.LabelOpts(is_show=False)  # ❌ Suppression des étiquettes
+            )
+    else:
+        # Mode Somme Totale
+        df_summed = df_melted.groupby("Année")["Valeur"].sum().reset_index()
+        line_chart.add_yaxis(
+            "Total", df_summed["Valeur"].tolist(),
+            is_smooth=True,
+            linestyle_opts=opts.LineStyleOpts(width=3),
+            label_opts=opts.LabelOpts(is_show=False)  # ❌ Suppression des étiquettes
+        )
+
+    # 📌 Personnalisation du graphique
+    line_chart.set_global_opts(
+        title_opts=opts.TitleOpts(
+            title=f"📊 Évolution de {grandeur_selectionnee}",
+            pos_left="20%",
+            pos_top="5%",
+            title_textstyle_opts=opts.TextStyleOpts(color="white", font_size=16)
+        ),
+        xaxis_opts=opts.AxisOpts(
+            name="Année",
+            axislabel_opts=opts.LabelOpts(color="white"),
+            type_="category",
+            splitline_opts=opts.SplitLineOpts(is_show=False)  # ❌ Supprimer le quadrillage X
+        ),
+        yaxis_opts=opts.AxisOpts(
+            name="Valeur",
+            axislabel_opts=opts.LabelOpts(color="white"),
+            splitline_opts=opts.SplitLineOpts(is_show=False)  # ❌ Supprimer le quadrillage Y
+        ),
+        legend_opts=opts.LegendOpts(
+            pos_right="5%",
+            pos_top="15%",  # ✅ Déplacement de la légende à droite
+            orient="vertical",  # ✅ Alignement vertical de la légende
+            textstyle_opts=opts.TextStyleOpts(color="white")
+        )
     )
 
-# 📌 Personnalisation du graphique
-fig.update_traces(
-    line=dict(width=5),  # Lignes plus épaisses
-    marker=dict(size=8, symbol="circle")  # Marqueurs plus visibles
-)
-
-# 📌 Amélioration du design global
-fig.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
-
-# 📌 Affichage du graphique
-st.plotly_chart(fig, use_container_width=True)
+    # 📌 Affichage dans Streamlit
+    st_pyecharts(line_chart)
 
 # Section des analyses croisées
 
