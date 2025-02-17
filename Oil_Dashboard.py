@@ -346,11 +346,12 @@ with cam:
     st.markdown("""
         <style>
         div.echarts-container {
-            background: transparent !important;
+            background: rgba(0, 0, 0, 0.3) !important;  /* ✅ Fond semi-transparent */
         }
         </style>
         """, unsafe_allow_html=True
     )
+
     st_pyecharts(pie)
 
 with hist:
