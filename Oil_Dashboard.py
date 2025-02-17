@@ -343,7 +343,7 @@ with cam:
             tooltip_opts=opts.TooltipOpts(trigger="item", formatter="{b}: {c} ({d}%)"),
         )
     )
-        st.markdown("""
+    st.markdown("""
         <style>
         div.echarts-container {
             background: transparent !important;
