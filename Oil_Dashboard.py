@@ -319,7 +319,7 @@ with cam:
         Pie(init_opts=opts.InitOpts(
             width="100%",  # 📌 Permet au graphique de s'étirer selon la colonne
             height="1000px",  # 📌 Ajuste la hauteur pour éviter l'écrasement
-            bg_color=None,  # ✅ Fond totalement transparent
+            bg_color="black",  # ✅ Fond totalement transparent
         ))
         .add(
             "", 
@@ -332,7 +332,7 @@ with cam:
                 pos_left="center",
                 pos_top="2%",
                 title_textstyle_opts=opts.TextStyleOpts(
-                    color="black",
+                    color="white",
                     font_size=16
                 )
             ),
