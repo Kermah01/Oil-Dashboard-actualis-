@@ -320,7 +320,6 @@ with cam:
             width="100%",  # 📌 Permet au graphique de s'étirer selon la colonne
             height="1000px",  # 📌 Ajuste la hauteur pour éviter l'écrasement
             bg_color=None,  # ✅ Fond totalement transparent
-            theme="dark"  # ✅ Force un bon contraste
         ))
         .add(
             "", 
@@ -343,6 +342,14 @@ with cam:
             label_opts=opts.LabelOpts(formatter="{b}: {c} ({d}%)", color="white"),
             tooltip_opts=opts.TooltipOpts(trigger="item", formatter="{b}: {c} ({d}%)"),
         )
+    )
+        st.markdown("""
+        <style>
+        div.echarts-container {
+            background: transparent !important;
+        }
+        </style>
+        """, unsafe_allow_html=True
     )
     st_pyecharts(pie)
 
