@@ -9,6 +9,8 @@ openpyxl
 scipy
 joblib
 streamlit-extras
+streamlit-echarts
+pyecharts
 nltk
 wordcloud
 regex
