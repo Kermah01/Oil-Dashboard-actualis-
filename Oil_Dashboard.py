@@ -319,7 +319,7 @@ with cam:
         Pie(init_opts=opts.InitOpts(
             width="100%",  # 📌 Permet au graphique de s'étirer selon la colonne
             height="1000px",  # 📌 Ajuste la hauteur pour éviter l'écrasement
-            bg_color="rgba(0, 0, 0, 0.3)",  # ✅ Fond totalement transparent
+            bg_color="rgba(0, 0, 2, 0.3)",  # ✅ Fond totalement transparent
         ))
         .add(
             "", 
