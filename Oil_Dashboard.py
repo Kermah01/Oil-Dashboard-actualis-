@@ -404,7 +404,7 @@ if df_melted.empty:
 else:
     # 📌 Création du graphique PyEcharts avec plus de hauteur et légende à droite
     line_chart = Line(init_opts=opts.InitOpts(
-        width="100%", height="2500px", bg_color="rgba(0,0,0,0.3)"
+        width="100%", height="2500px", bg_color="black"
     ))
 
     line_chart.add_xaxis(df_melted["Année"].unique().tolist())  # Ajout des années
