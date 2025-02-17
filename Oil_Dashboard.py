@@ -5,6 +5,9 @@ import numpy as np
 from streamlit_extras.metric_cards import style_metric_cards # beautify metric card with css
 import plotly.graph_objects as go
 import json
+from pyecharts.charts import Pie
+from pyecharts import options as opts
+from streamlit_echarts import st_pyecharts
 import openpyxl
 from openpyxl import load_workbook
 import altair as alt
