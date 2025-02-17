@@ -302,28 +302,46 @@ st.subheader("Analyse graphique avec une seule variable")
 cam, hist = st.columns(2,gap='medium')
 st.write(df["Statut du bloc"].value_counts())
 with cam:
-    st.subheader("CAMEMBERT")
-    selected_categorical_variable_p = st.selectbox("***Sélectionnez une variable catégorielle pour le camembert***", ['Type de profondeur', 'Opérateur1',
+   st.subheader("CAMEMBERT")
+    selected_categorical_variable_p = st.selectbox("***Sélectionnez la variable catégorielle pour le camembert***",['Type de profondeur', 'Opérateur1',
     'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
     'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc'], index=1)
+    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=1)
+    #📌 Charger les données
+        # 📌 Charger les données
     df_counts = df[selected_categorical_variable_p].value_counts().reset_index()
     df_counts.columns = ['Category', 'Count']
 
-    # 📌 Création du camembert avec `go.Figure`
-    fig_pie = go.Figure(
-        data=[
-            go.Pie(
-                labels=df_counts['Category'], 
-                values=df_counts['Count'],
-                marker=dict(
-                    colors=colors,
-                ),
-            )
-        ]
+    # 📌 Création du camembert avec adaptation à la colonne
+    pie = (
+        Pie(init_opts=opts.InitOpts(
+            width="100%",  # 📌 Permet au graphique de s'étirer selon la colonne
+            height="1000px",  # 📌 Ajuste la hauteur pour éviter l'écrasement
+            bg_color="rgba(0,0,0,0.3)"  # Fond semi-transparent
+        ))
+        .add(
+            "", 
+            [list(z) for z in zip(df_counts["Category"], df_counts["Count"])], 
+            center=["50%", "60%"],
+        )
+        .set_global_opts(
+            title_opts=opts.TitleOpts(
+                title=f"Répartition de {selected_categorical_variable_p}",
+                pos_left="center",
+                pos_top="2%",
+                title_textstyle_opts=opts.TextStyleOpts(
+                    color="white",
+                    font_size=16
+                )
+            ),
+            legend_opts=opts.LegendOpts(is_show=False),
+        )
+        .set_series_opts(
+            label_opts=opts.LabelOpts(formatter="{b}: {c} ({d}%)", color="white"),
+            tooltip_opts=opts.TooltipOpts(trigger="item", formatter="{b}: {c} ({d}%)"),
+        )
     )
-    fig_pie.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.25)
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st_pyecharts(pie)
 
 with hist:
     st.subheader("HISTOGRAMME")
