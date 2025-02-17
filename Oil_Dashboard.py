@@ -300,7 +300,6 @@ st.header("Analyses graphiques", divider="rainbow")
 st.subheader("Analyse graphique avec une seule variable")
 # Histogramme et Camembert sur la même ligne
 cam, hist = st.columns(2,gap='medium')
-st.write(df["Statut du bloc"].value_counts())
 with cam:
    st.subheader("CAMEMBERT")
     selected_categorical_variable_p = st.selectbox("***Sélectionnez la variable catégorielle pour le camembert***",['Type de profondeur', 'Opérateur1',
