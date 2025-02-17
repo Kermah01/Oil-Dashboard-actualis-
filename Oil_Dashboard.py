@@ -346,7 +346,7 @@ with cam:
     st.markdown("""
         <style>
         div.echarts-container {
-            background: rgba(0, 0, 0, 0.3) !important;  /* ✅ Fond semi-transparent */
+            background: transparent !important;
         }
         </style>
         """, unsafe_allow_html=True
