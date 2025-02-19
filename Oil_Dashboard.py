@@ -170,8 +170,8 @@ def map():
                                                             '<b>Opérateur le plus récent</b>: %{customdata[1]}<br>'
                                                             '<b>Superficie</b>: %{customdata[2]} Km2<br>'
                                                             '<b>Type de profondeur</b>: %{customdata[3]}<br>'
-                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[4]} Bbls<br>'
-                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[5]} MMSCF',
+                                                            '<b>Production de pétrole du Bloc en 2023</b>: %{customdata[4]} Bbls<br>'
+                                                            '<b>Production de gaz du Bloc en 2023</b>: %{customdata[5]} MMSCF',
                                                             hoverlabel=dict(font=dict(size=10, color='white')),)
     fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig_map.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',})
