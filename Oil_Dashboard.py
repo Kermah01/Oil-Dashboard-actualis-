@@ -164,13 +164,14 @@ def map():
                             zoom=6,center = {"lat": 5.8, "lon": -5.61},
                             opacity=0.5,
                             labels={'Statut du bloc':'Statut du bloc'},
-                            custom_data= [df["Opérateur le plus récent"], df['Superfice (en Km²)'], df["Type de profondeur"], df["Prod. Pétrole 2022 Bbls"], df['Prod Gaz N. 2022 MMSCF']]
+                            custom_data= [df["Blocs"],df["Opérateur le plus récent"], df['Superfice (en Km²)'], df["Type de profondeur"], df["Prod. Pétrole 2023 Bbls"], df['Prod Gaz N. 2023 MMSCF']]
                             )
-    fig_map.update_traces(text=df['Blocs'], hovertemplate='<b>Opérateur le plus récent</b>: %{customdata[0]}<br>'
-                                                            '<b>Superficie</b>: %{customdata[1]} Km2<br>'
-                                                            '<b>Type de profondeur</b>: %{customdata[2]}<br>'
-                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[3]} Bbls<br>'
-                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[4]} MMSCF',
+    fig_map.update_traces(text=df['Blocs'], hovertemplate='<b>Nom du bloc</b>: %{customdata[0]}<br>'
+                                                            '<b>Opérateur le plus récent</b>: %{customdata[1]}<br>'
+                                                            '<b>Superficie</b>: %{customdata[2]} Km2<br>'
+                                                            '<b>Type de profondeur</b>: %{customdata[3]}<br>'
+                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[4]} Bbls<br>'
+                                                            '<b>Production de pétrole du Bloc en 2022</b>: %{customdata[5]} MMSCF',
                                                             hoverlabel=dict(font=dict(size=10, color='white')),)
     fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig_map.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',})
