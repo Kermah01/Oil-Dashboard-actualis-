@@ -6,6 +6,7 @@ indicateurs de production, carte interactive des blocs, base de données
 filtrable et analyses graphiques (univariées, temporelles et croisées).
 """
 
+import base64
 import json
 from pathlib import Path
 
@@ -33,6 +34,7 @@ st.set_page_config(
 BASE_DIR = Path(__file__).resolve().parent
 FICHIER_BASE = BASE_DIR / "Base Pétrole finale.xlsx"
 FICHIER_GEOJSON = BASE_DIR / "GéoJson Blocs pétroliers.json"
+FICHIER_HERO = BASE_DIR / "assets" / "hero_bg.webp"
 
 ANNEES = list(range(2018, 2024))
 
@@ -99,10 +101,17 @@ RENOMMAGE_COLONNES = {
 # ---------------------------------------------------------------------------
 # Thème visuel : CSS immersif injecté sur toute l'application
 # ---------------------------------------------------------------------------
-def inject_css() -> None:
-    """Injecte le thème « pétrole profond » : fond animé, verre, typographie."""
-    st.markdown(
-        """
+@st.cache_resource(show_spinner=False)
+def fond_hero_base64() -> str:
+    """Encode l'image de fond (plateforme offshore au crépuscule) en base64."""
+    return base64.b64encode(FICHIER_HERO.read_bytes()).decode("ascii")
+
+
+def inject_css(fond_b64: str) -> None:
+    """Injecte le thème « pétrole profond » : photo de plateforme offshore en
+    fond pleine page sous un dégradé d'opacité (image visible en haut,
+    quasi opaque en bas pour la lisibilité), verre, typographie."""
+    css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -111,7 +120,7 @@ def inject_css() -> None:
     --bg-1: #0a1018;
     --bg-chaud: #140d05;
     --surface: #101722;
-    --verre: rgba(15, 22, 33, 0.55);
+    --verre: rgba(15, 22, 33, 0.62);
     --verre-bord: rgba(246, 162, 30, 0.14);
     --verre-bord-vif: rgba(246, 162, 30, 0.38);
     --ink: #eef2f8;
@@ -127,48 +136,26 @@ html, body, .stApp, [class*="css"] {
     font-family: Inter, 'Segoe UI', sans-serif;
 }
 
-/* ---- Fond pleine page : nappe de pétrole animée ---- */
+/* ---- Fond pleine page : plateforme pétrolière offshore au crépuscule ----
+   L'image reste visible dans le tiers haut (effet « waouh » à l'ouverture),
+   puis le voile sombre devient quasi opaque pour la lisibilité des
+   graphiques. L'image est fixe : le contenu glisse au-dessus d'elle. */
 .stApp {
-    background: linear-gradient(165deg, var(--bg-0) 0%, var(--bg-1) 46%, var(--bg-chaud) 100%);
-    background-size: 160% 160%;
-    animation: nappe 36s ease-in-out infinite alternate;
+    background:
+        linear-gradient(180deg, rgba(4, 7, 12, 0.28) 0%, rgba(4, 7, 12, 0.44) 42%, rgba(5, 8, 14, 0.72) 70%, rgba(5, 8, 14, 0.94) 100%),
+        url(data:image/webp;base64,%%FOND_HERO%%) 68% bottom / auto 150% fixed no-repeat;
+    background-color: var(--bg-0);
     color: var(--ink);
 }
-@keyframes nappe {
-    0%   { background-position: 0% 0%; }
-    100% { background-position: 100% 100%; }
-}
 
-/* Halos ambrés / cuivre en mouvement lent */
-.stApp::before {
-    content: "";
-    position: fixed;
-    inset: -25%;
-    z-index: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(circle at 18% 22%, rgba(246, 162, 30, 0.16), transparent 42%),
-        radial-gradient(circle at 82% 72%, rgba(200, 127, 69, 0.14), transparent 46%),
-        radial-gradient(circle at 65% 12%, rgba(57, 135, 229, 0.08), transparent 38%),
-        radial-gradient(circle at 35% 85%, rgba(232, 192, 105, 0.07), transparent 40%);
-    filter: blur(70px);
-    animation: halos 28s ease-in-out infinite alternate;
-    will-change: transform;
-}
-@keyframes halos {
-    0%   { transform: translate3d(-3%, -2%, 0) scale(1) rotate(0deg); }
-    50%  { transform: translate3d(3%, 4%, 0) scale(1.12) rotate(4deg); }
-    100% { transform: translate3d(-2%, 2%, 0) scale(1.04) rotate(-3deg); }
-}
-
-/* Vignette radiale : profondeur de champ */
+/* Vignette radiale : profondeur de champ, sans masquer la plateforme */
 .stApp::after {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: radial-gradient(ellipse 120% 90% at 50% 18%, transparent 55%, rgba(2, 4, 8, 0.55) 100%);
+    background: radial-gradient(ellipse 130% 95% at 50% 24%, transparent 60%, rgba(2, 4, 8, 0.45) 100%);
 }
 
 /* Le contenu passe au-dessus des couches décoratives */
@@ -177,27 +164,36 @@ html, body, .stApp, [class*="css"] {
     z-index: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .stApp, .stApp::before { animation: none; }
-}
-
 /* ---- En-tête Streamlit transparent ---- */
 header[data-testid="stHeader"] {
     background: transparent;
 }
 
-/* ---- Hero ---- */
+/* ---- Hero posé sur la photo ---- */
 .hero {
-    padding: 2.2rem 0 0.6rem 0;
+    position: relative;
+    padding: 3.4rem 0 2.4rem 0;
+}
+/* Scrim local : renforce le contraste du texte sans voiler la plateforme,
+   à droite, qui reste le sujet de l'image. */
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: -3rem 30% -2rem -4rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 85% 95% at 28% 45%, rgba(2, 5, 9, 0.55), transparent 72%);
+    filter: blur(14px);
 }
 .hero-kicker {
     font-family: Sora, Inter, sans-serif;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.32em;
+    letter-spacing: 0.34em;
     text-transform: uppercase;
-    color: var(--ambre);
-    margin-bottom: 0.9rem;
+    color: var(--ambre-vif);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
+    margin-bottom: 1.1rem;
 }
 .hero-kicker::before {
     content: "";
@@ -210,22 +206,26 @@ header[data-testid="stHeader"] {
 }
 .hero-titre {
     font-family: Sora, Inter, sans-serif;
-    font-size: clamp(2rem, 4.2vw, 3.3rem);
+    font-size: clamp(2.5rem, 5.4vw, 4.4rem);
     font-weight: 800;
-    line-height: 1.12;
-    margin: 0 0 0.8rem 0;
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+    margin: 0 0 1.1rem 0;
+    max-width: 17ch;
     background: linear-gradient(100deg, #fdf6e9 8%, var(--ambre-vif) 42%, var(--ambre) 62%, var(--cuivre) 95%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: var(--ambre-vif); /* repli si background-clip indisponible */
+    filter: drop-shadow(0 3px 18px rgba(0, 0, 0, 0.75));
 }
 .hero-sous-titre {
-    color: var(--ink-2);
-    font-size: 1.02rem;
-    max-width: 46rem;
-    line-height: 1.6;
-    margin-bottom: 1.3rem;
+    color: #cdd6e2;
+    font-size: 1.06rem;
+    max-width: 44rem;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 .hero-badges {
     display: flex;
@@ -277,6 +277,16 @@ header[data-testid="stHeader"] {
     color: var(--ink);
     margin: 0;
     padding: 0;
+    white-space: nowrap;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+/* Divider élégant : filet dégradé qui prolonge chaque titre de section */
+.section-titre::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    margin-left: 0.9rem;
+    background: linear-gradient(90deg, rgba(246, 162, 30, 0.38), rgba(238, 242, 248, 0.07) 55%, transparent);
 }
 .section-sous-titre {
     color: var(--ink-3);
@@ -284,20 +294,21 @@ header[data-testid="stHeader"] {
     margin: 0.1rem 0 1rem 0.95rem;
 }
 
-/* ---- Cartes KPI (st.metric) en verre ---- */
-div[data-testid="stMetric"] {
+/* ---- Cartes KPI premium : verre, icône, valeur énorme, delta coloré ---- */
+.kpi-carte {
     position: relative;
     overflow: hidden;
+    height: 100%;
     background: var(--verre);
-    border: 1px solid var(--verre-bord) !important;
-    border-radius: 16px;
-    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--verre-bord);
+    border-radius: 18px;
+    padding: 1.15rem 1.25rem 1.1rem;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
-div[data-testid="stMetric"]::before {
+.kpi-carte::before {
     content: "";
     position: absolute;
     top: 0; left: 0; right: 0;
@@ -305,34 +316,83 @@ div[data-testid="stMetric"]::before {
     background: linear-gradient(90deg, transparent, var(--ambre), transparent);
     opacity: 0.55;
 }
-div[data-testid="stMetric"]:hover {
-    transform: translateY(-3px);
-    border-color: var(--verre-bord-vif) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(246, 162, 30, 0.12);
+.kpi-carte:hover {
+    transform: translateY(-4px);
+    border-color: var(--verre-bord-vif);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(246, 162, 30, 0.14);
 }
-div[data-testid="stMetric"] label p {
-    color: var(--ink-2) !important;
-    font-size: 0.85rem !important;
+.kpi-haut {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.7rem;
+}
+.kpi-icone {
+    flex: 0 0 auto;
+    width: 2.3rem;
+    height: 2.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: linear-gradient(135deg, rgba(246, 162, 30, 0.22), rgba(200, 127, 69, 0.08));
+    border: 1px solid rgba(246, 162, 30, 0.32);
+    color: var(--ambre-vif);
+    box-shadow: 0 0 16px rgba(246, 162, 30, 0.12);
+}
+.kpi-icone svg { width: 1.2rem; height: 1.2rem; }
+.kpi-libelle {
+    font-size: 0.76rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    line-height: 1.3;
 }
-div[data-testid="stMetricValue"] {
+.kpi-valeur {
     font-family: Sora, Inter, sans-serif;
-    font-weight: 700;
-    font-size: 1.45rem !important;
+    font-size: clamp(1.55rem, 1.9vw, 2.05rem);
+    font-weight: 800;
+    line-height: 1.08;
     color: var(--ink);
-    white-space: normal;
+    letter-spacing: -0.01em;
 }
-div[data-testid="stMetricValue"] div,
-div[data-testid="stMetricDelta"] div,
-div[data-testid="stMetricLabel"] div,
-div[data-testid="stMetricLabel"] p {
-    overflow: visible !important;
-    text-overflow: clip !important;
-    white-space: normal !important;
+.kpi-unite {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-left: 0.2rem;
+    letter-spacing: 0;
 }
-div[data-testid="stMetricDelta"] {
-    font-size: 0.8rem !important;
+.kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.kpi-delta--hausse {
+    color: #4fd6a2;
+    background: rgba(32, 178, 124, 0.13);
+    border: 1px solid rgba(79, 214, 162, 0.28);
+}
+.kpi-delta--baisse {
+    color: #ff958a;
+    background: rgba(220, 76, 60, 0.14);
+    border: 1px solid rgba(255, 149, 138, 0.28);
+}
+.kpi-delta--stable {
+    color: var(--ink-2);
+    background: rgba(170, 180, 196, 0.1);
+    border: 1px solid rgba(170, 180, 196, 0.22);
+}
+.kpi-ref {
+    margin-top: 0.45rem;
+    font-size: 0.73rem;
+    color: var(--ink-3);
 }
 
 /* ---- Cadres de verre appliqués via st.container(key=...) ---- */
@@ -385,18 +445,71 @@ div[data-testid="stPlotlyChart"]:hover {
 
 /* ---- Barre latérale assortie ---- */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(185deg, rgba(10, 15, 23, 0.92), rgba(13, 15, 12, 0.94));
+    background: linear-gradient(185deg, rgba(8, 12, 19, 0.93), rgba(12, 13, 11, 0.95));
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-right: 1px solid var(--verre-bord);
 }
-section[data-testid="stSidebar"] h1 {
+.sb-titre {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0 0.2rem 0;
+}
+.sb-logo {
+    width: 2.6rem;
+    height: 2.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    font-size: 1.25rem;
+    background: linear-gradient(135deg, rgba(246, 162, 30, 0.26), rgba(200, 127, 69, 0.1));
+    border: 1px solid rgba(246, 162, 30, 0.4);
+    box-shadow: 0 0 18px rgba(246, 162, 30, 0.18);
+}
+.sb-nom {
     font-family: Sora, Inter, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.15;
     background: linear-gradient(95deg, #fdf6e9, var(--ambre-vif) 55%, var(--cuivre));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: var(--ambre-vif);
+}
+.sb-sous {
+    margin: 0;
+    font-size: 0.74rem;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+}
+.sb-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.4rem 0 0.2rem 0;
+    font-family: Sora, Inter, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ambre);
+}
+.sb-section::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(246, 162, 30, 0.3), transparent);
+}
+section[data-testid="stSidebar"] label p {
+    color: var(--ink-2) !important;
+    font-size: 0.84rem !important;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0;
 }
 
 /* ---- Boutons en dégradé ambre → cuivre ---- */
@@ -434,6 +547,14 @@ div[data-testid="stDataFrame"] {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
+/* ---- Sous-titres de section (h4 Markdown) ---- */
+.stMarkdown h4 {
+    font-family: Sora, Inter, sans-serif;
+    font-weight: 700;
+    color: var(--ink);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+
 /* ---- Divers ---- */
 hr { border-color: rgba(238, 242, 248, 0.08); }
 div[data-testid="stCaptionContainer"] { color: var(--ink-3); }
@@ -445,9 +566,8 @@ div[data-testid="stCaptionContainer"] { color: var(--ink-3); }
 }
 .pied-page .goutte { color: var(--ambre); }
 </style>
-        """,
-        unsafe_allow_html=True,
-    )
+"""
+    st.markdown(css.replace("%%FOND_HERO%%", fond_b64), unsafe_allow_html=True)
 
 
 def enregistrer_template_plotly() -> None:
@@ -506,7 +626,7 @@ def titre_section(texte: str, sous_titre: str | None = None) -> None:
         )
 
 
-inject_css()
+inject_css(fond_hero_base64())
 enregistrer_template_plotly()
 
 
@@ -573,6 +693,63 @@ def fmt_fr(valeur: float, decimales: int = 0) -> str:
     return f"{valeur:,.{decimales}f}".replace(",", " ").replace(".", ",")
 
 
+# Icônes SVG (trait fin, couleur héritée) des cartes KPI
+_SVG = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{}</svg>'
+)
+ICONES_KPI = {
+    "petrole": _SVG.format(
+        '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5'
+        'c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>'
+    ),
+    "gaz": _SVG.format(
+        '<path d="M12 3c.9 2.7-2.7 4.5-2.7 7.4a2.7 2.7 0 0 0 5.4 0'
+        'c0-.8-.3-1.6-.8-2.3 2.1 1.2 3.3 3.1 3.3 5.4a5.2 5.2 0 0 1-10.4 0'
+        'C6.8 9.4 10.6 7 12 3z"/>'
+    ),
+    "vente": _SVG.format(
+        '<polyline points="3 17 9.5 10.5 13.5 14 21 6"/>'
+        '<polyline points="15 6 21 6 21 12"/>'
+    ),
+    "forage": _SVG.format(
+        '<path d="M9.3 21 12 4l2.7 17"/><path d="M6.5 21h11"/>'
+        '<path d="M10.3 14h3.4"/><path d="M10.9 9.5h2.2"/>'
+    ),
+}
+
+
+def carte_kpi(
+    colonne,
+    icone: str,
+    libelle: str,
+    valeur: str,
+    unite: str,
+    delta: float,
+    texte_delta: str,
+    annee_ref: int,
+) -> None:
+    """Affiche une carte KPI de verre : icône ambrée, grande valeur, delta coloré."""
+    if delta > 0:
+        classe, fleche = "hausse", "▲"
+    elif delta < 0:
+        classe, fleche = "baisse", "▼"
+    else:
+        classe, fleche = "stable", "◆"
+    colonne.markdown(
+        f'<div class="kpi-carte">'
+        f'<div class="kpi-haut">'
+        f'<span class="kpi-icone">{ICONES_KPI[icone]}</span>'
+        f'<span class="kpi-libelle">{libelle}</span>'
+        f"</div>"
+        f'<div class="kpi-valeur">{valeur}<span class="kpi-unite">{unite}</span></div>'
+        f'<span class="kpi-delta kpi-delta--{classe}">{fleche}&nbsp;{texte_delta}</span>'
+        f'<div class="kpi-ref">vs {annee_ref} (année de référence)</div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def styliser(fig: go.Figure, hauteur: int = 420) -> go.Figure:
     """Applique les réglages communs (le gabarit « petrole_profond » fait le reste)."""
     fig.update_layout(
@@ -626,19 +803,25 @@ geojson_blocs = charger_geojson()
 # Barre latérale : filtres
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.title("Pétrole CI")
-    st.caption("Secteur pétrolier amont de la Côte d'Ivoire")
+    st.markdown(
+        '<div class="sb-titre"><span class="sb-logo">🛢️</span>'
+        '<div><p class="sb-nom">Pétrole CI</p>'
+        '<p class="sb-sous">Secteur amont · Côte d&rsquo;Ivoire</p></div></div>',
+        unsafe_allow_html=True,
+    )
     st.divider()
 
-    st.subheader("Filtres")
-
+    st.markdown('<p class="sb-section">◷ Période</p>', unsafe_allow_html=True)
     periode = st.select_slider(
-        "Période d'analyse (année de référence → année étudiée)",
+        "Année de référence → année étudiée",
         options=ANNEES,
         value=(2022, 2023),
     )
     annee_ref, annee_etude = periode
 
+    st.markdown(
+        '<p class="sb-section">⬡ Périmètre des blocs</p>', unsafe_allow_html=True
+    )
     statuts = st.multiselect(
         "Statut du bloc",
         options=sorted(df["Statut du bloc"].dropna().unique()),
@@ -703,30 +886,30 @@ delta_vente = vente_gaz - df_filtre[f"Vente Gaz N. {annee_ref} MMBTU"].sum()
 forages = df_filtre[f"Nbre de forages {annee_etude}"].sum()
 delta_forages = forages - df_filtre[f"Nbre de forages {annee_ref}"].sum()
 
+def _signe(valeur: float) -> str:
+    return "+" if valeur > 0 else ""
+
+
 kpi = st.columns(4, gap="medium")
-kpi[0].metric(
-    "Production de pétrole",
-    f"{fmt_fr(prod_petrole / 1e6, 2)} M Bbls",
-    delta=f"{fmt_fr(delta_petrole)} Bbls",
-    border=True,
+carte_kpi(
+    kpi[0], "petrole", "Production de pétrole",
+    fmt_fr(prod_petrole / 1e6, 2), " M Bbls",
+    delta_petrole, f"{_signe(delta_petrole)}{fmt_fr(delta_petrole)} Bbls", annee_ref,
 )
-kpi[1].metric(
-    "Production de gaz",
-    f"{fmt_fr(prod_gaz / 1e3, 2)} K MMSCF",
-    delta=f"{fmt_fr(delta_gaz)} MMSCF",
-    border=True,
+carte_kpi(
+    kpi[1], "gaz", "Production de gaz",
+    fmt_fr(prod_gaz / 1e3, 2), " K MMSCF",
+    delta_gaz, f"{_signe(delta_gaz)}{fmt_fr(delta_gaz)} MMSCF", annee_ref,
 )
-kpi[2].metric(
-    "Vente de gaz naturel",
-    f"{fmt_fr(vente_gaz / 1e6, 2)} M MMBTU",
-    delta=f"{fmt_fr(delta_vente)} MMBTU",
-    border=True,
+carte_kpi(
+    kpi[2], "vente", "Vente de gaz naturel",
+    fmt_fr(vente_gaz / 1e6, 2), " M MMBTU",
+    delta_vente, f"{_signe(delta_vente)}{fmt_fr(delta_vente)} MMBTU", annee_ref,
 )
-kpi[3].metric(
-    "Forages réalisés",
-    fmt_fr(forages),
-    delta=f"{fmt_fr(delta_forages)} forage(s)",
-    border=True,
+carte_kpi(
+    kpi[3], "forage", "Forages réalisés",
+    fmt_fr(forages), "",
+    delta_forages, f"{_signe(delta_forages)}{fmt_fr(delta_forages)} forage(s)", annee_ref,
 )
 
 # ---------------------------------------------------------------------------
@@ -925,6 +1108,7 @@ with col_pie:
         textinfo="percent",
         hovertemplate="<b>%{label}</b><br>%{value} bloc(s) — %{percent}<extra></extra>",
     )
+    fig_pie.update_layout(legend=dict(font=dict(size=10.5)))
     st.plotly_chart(styliser(fig_pie, hauteur=440), width="stretch")
 
 with col_bar:
