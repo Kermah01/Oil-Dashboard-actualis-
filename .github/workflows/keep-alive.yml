@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Ping de l'application Streamlit
         env:
-          APP_URL: ${{ vars.APP_URL }}
+          APP_URL: ${{ vars.APP_URL || 'https://civ-oil-dashboard.streamlit.app/' }}
         run: |
           if [ -z "${APP_URL}" ]; then
             echo "La variable de dépôt APP_URL n'est pas définie : aucun ping envoyé."
