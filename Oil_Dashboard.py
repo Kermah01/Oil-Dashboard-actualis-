@@ -1,508 +1,1219 @@
-import streamlit as st
+# -*- coding: utf-8 -*-
+"""Tableau de bord du secteur pétrolier amont ivoirien.
+
+Dashboard Streamlit d'exploration des blocs pétroliers de Côte d'Ivoire :
+indicateurs de production, carte interactive des blocs, base de données
+filtrable et analyses graphiques (univariées, temporelles et croisées).
+"""
+
+import base64
+import json
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
-import numpy as np
-from streamlit_extras.metric_cards import style_metric_cards # beautify metric card with css
 import plotly.graph_objects as go
-import json
-from pyecharts.charts import Pie
-from pyecharts import options as opts
-from streamlit_echarts import st_pyecharts
-from pyecharts.charts import Line
-import openpyxl
-from openpyxl import load_workbook
-import altair as alt
+import plotly.io as pio
+import streamlit as st
 from pandas.api.types import (
-    is_categorical_dtype,
     is_datetime64_any_dtype,
     is_numeric_dtype,
-    is_object_dtype,
+    is_string_dtype,
 )
 
-st. set_page_config(layout="wide")
+# ---------------------------------------------------------------------------
+# Configuration générale
+# ---------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Secteur pétrolier ivoirien",
+    page_icon="🛢️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-#Chargement des bases de données
-def read_excel_file(file):
-    data = load_workbook(file)
-    datas = data.active
-    donnees = []
-    for ligne in datas.iter_rows(values_only=True):
-        donnees.append(list(ligne))
-    en_tetes = donnees[0]
-    donnees = donnees[1:]
-    new_df = pd.DataFrame(donnees, columns=en_tetes)
-    return new_df
-df=read_excel_file("Base Pétrole finale.xlsx")
-coord_géo= read_excel_file("Coordonnées géographiques Blocs.xlsx")
-with open("GéoJson Blocs pétroliers.json") as f:
-  counties = json.load(f)
-st.sidebar.image('https://static.vecteezy.com/system/resources/thumbnails/010/248/729/original/national-emblem-coat-of-arms-or-symbol-of-ivory-coast-in-waving-flag-smooth-4k-seemless-loop-free-video.jpg', use_column_width='always')
-st.sidebar.subheader("Cabinet du Ministre de l'Economie, du Plan et du Développement", divider="orange")
+BASE_DIR = Path(__file__).resolve().parent
+FICHIER_BASE = BASE_DIR / "Base Pétrole finale.xlsx"
+FICHIER_GEOJSON = BASE_DIR / "GéoJson Blocs pétroliers.json"
+FICHIER_HERO = BASE_DIR / "assets" / "hero_bg.webp"
 
- #Définition des ordres de mois et des jours
- #Définition des ordres de mois et des jours
-order_of_months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-dic_month={1:"Janvier",2:"Février",3:"Mars",4:"Avril",5:"Mai",6:"Juin",7:"Juillet",8:"Août",9:"Septembre",10:"Octobre",11:"Novembre",12:"Décembre"}
-order_of_days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
-dic_day={0:"Lundi",1:"Mardi",2:"Mercredi",3:"Jeudi",4:"Vendredi",5:"Samedi",6:"Dimanche"}
+ANNEES = list(range(2018, 2024))
 
-def order_of_months_year(Année):
-    order_of_months_year = []
-    start_year = df[Année].min()
-    end_year = df[Année].max()
-    for year in range(start_year, end_year + 1):
-        for month in order_of_months:
-            order_of_months_year.append(f"{month} {year}")
-    return order_of_months_year
+ORDRE_MOIS = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+NOM_MOIS = dict(enumerate(ORDRE_MOIS, start=1))
 
-def transf_df(df):
-    for date in ["Date de signature du 1er CPP", "Date de la 2ème signature du CPP","Date de fin de validité d'exploration 1", "Date de fin de validité d'exploration 2","Date de fin de validité exploitation 1"]:
-        df[date]= pd.to_datetime(df[date],format="%d/%m/%Y %H:%M", errors='coerce')
-        df[f"Mois {str(date).replace('Date','')}"] = df[date].dt.month
-        df[f"Jour {str(date).replace('Date','')}"] = df[date].dt.day_of_week
-        df[f"heure {str(date).replace('Date','')}"]=df[date].dt.hour
-        df[f"Année {str(date).replace('Date','')}"]=df[date].dt.year
-        df[f"Mois {str(date).replace('Date','')}"]=df[f"Mois {str(date).replace('Date','')}"].map(dic_month)
-        df[f"Mois* {str(date).replace('Date','')}"] = pd.Categorical(df[f"Mois {str(date).replace('Date','')}"], categories=order_of_months, ordered=True)
-        df[f"Jour {str(date).replace('Date','')}"]=df[f"Jour {str(date).replace('Date','')}"].map(dic_day)
-        df[f"Jour* {str(date).replace('Date','')}"] = pd.Categorical(df[f"Jour {str(date).replace('Date','')}"], categories=order_of_days, ordered=True)
-        #df[f"Mois de l'année / {str(date).replace('Date','')}"] = df[f"Mois* {str(date).replace('Date','')}"].astype("str") + ' ' + df[f"Année {str(date).replace('Date','')}"].astype("str")
-        #df[f"Mois de l'année / {str(date).replace('Date','')}"] = pd.Categorical(df[f"Mois de l'année / {str(date).replace('Date','')}"], categories=order_of_months_year(f"Année {str(date).replace('Date','')}"), ordered=True)    
-    return df
-df=transf_df(df)
-page_bg_img = f"""
-    <style>
-    [data-testid="stAppViewContainer"] > .main {{
-    background-image: url(https://www.vudaf.com/wp-content/uploads/2021/09/petrole-en-cote-divoire.jpg);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: no-fixed;
-    height: 100vh;
-    margin: 0;
-    display: flex;
+# Palette validée pour fond sombre (identité des séries) — contrôlée avec le
+# validateur dataviz contre la surface sombre #101722 (bande de luminosité,
+# plancher de chroma, séparation daltonisme, plancher vision normale, contraste).
+PALETTE = [
+    "#3987e5", "#d95926", "#199e70", "#c98500",
+    "#d55181", "#008300", "#9085e9", "#e66767",
+] + list(px.colors.qualitative.Safe)
 
-    
-    }}
-    [data-testid="stSidebar"] {{
-        background-color: #000 !important;  /* Fond noir */
-        border: 2px solid #f7a900 !important;  /* Bordure rouge */
-        border-radius: 10px;  /* Coins arrondis */
-        margin-top: 0 px;  /* Ajuster la position vers le haut */
-        position: relative;
-        z-index: 1;  /* S'assurer que la barre latérale est au-dessus du contenu */
-        padding: 10px;
-    }}
-
-    [data-testid="stHeader"] {{
-    background: rgba(0, 0, 0, 0);
-    color: white;
-    }}
-
-    [data-testid="stToolbar"] {{
-    right: 2rem;
-    }}
-    </style>
-    """
-
-st.markdown(page_bg_img, unsafe_allow_html=True)
-st.markdown('<div style="text-align:center;width:100%;"><h1 style="color:white;background-color:black;border:red;border-style:solid;border-radius:5px;">TABLEAU DE BORD DU SECTEUR PETROLIER AMONT IVOIRIEN </h1></div>', unsafe_allow_html=True)
-st.write("")
-
-
-
-def make_donut(input_response, input_text, input_color):
-  if input_color == 'blue':
-      chart_color = ['#29b5e8', '#155F7A']
-  if input_color == 'green':
-      chart_color = ['#27AE60', '#12783D']
-  if input_color == 'orange':
-      chart_color = ['#F39C12', '#875A12']
-  if input_color == 'red':
-      chart_color = ['#E74C3C', '#781F16']
-    
-  source = pd.DataFrame({
-      "Topic": ['', input_text],
-      "% value": [100-input_response, input_response]
-  })
-  source_bg = pd.DataFrame({
-      "Topic": ['', input_text],
-      "% value": [100, 0]
-  })
-    
-  plot = alt.Chart(source).mark_arc(innerRadius=45, cornerRadius=25).encode(
-      theta="% value",
-      color= alt.Color("Topic:N",
-                      scale=alt.Scale(
-                          #domain=['A', 'B'],
-                          domain=[input_text, ''],
-                          # range=['#29b5e8', '#155F7A']),  # 31333F
-                          range=chart_color),
-                      legend=None),
-  ).properties(width=130, height=130)
-    
-  text = plot.mark_text(align='center', color="#29b5e8", font="Lato", fontSize=32, fontWeight=700, fontStyle="italic").encode(text=alt.value(f'{input_response} %'))
-  plot_bg = alt.Chart(source_bg).mark_arc(innerRadius=45, cornerRadius=20).encode(
-      theta="% value",
-      color= alt.Color("Topic:N",
-                      scale=alt.Scale(
-                          # domain=['A', 'B'],
-                          domain=[input_text, ''],
-                          range=chart_color),  # 31333F
-                      legend=None),
-  ).properties(width=130, height=130)
-  return plot_bg + plot + text
-
-
-
-
-def map():
-    fig_map = px.choropleth_mapbox(df, geojson=counties, locations='Blocs',featureidkey="properties.name", color='Statut du bloc',
-                            color_continuous_scale="Viridis",
-                            range_color=(0, 12),
-                            mapbox_style="open-street-map",
-                            zoom=6,center = {"lat": 5.8, "lon": -5.61},
-                            opacity=0.5,
-                            labels={'Statut du bloc':'Statut du bloc'},
-                            custom_data= [df["Blocs"],df["Opérateur le plus récent"], df['Superfice (en Km²)'], df["Type de profondeur"], df["Prod. Pétrole 2023 Bbls"], df['Prod Gaz N. 2023 MMSCF']]
-                            )
-    fig_map.update_traces(text=df['Blocs'], hovertemplate='<b>Nom du bloc</b>: %{customdata[0]}<br>'
-                                                            '<b>Opérateur le plus récent</b>: %{customdata[1]}<br>'
-                                                            '<b>Superficie</b>: %{customdata[2]} Km2<br>'
-                                                            '<b>Type de profondeur</b>: %{customdata[3]}<br>'
-                                                            '<b>Production de pétrole du Bloc en 2023</b>: %{customdata[4]} Bbls<br>'
-                                                            '<b>Production de gaz du Bloc en 2023</b>: %{customdata[5]} MMSCF',
-                                                            hoverlabel=dict(font=dict(size=10, color='white')),)
-    fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-    fig_map.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',})
-    return st.plotly_chart(fig_map,use_container_width=True)
-
-
-year=st.sidebar.select_slider("sélectionnez votre période d'analyse", options=[2018,2019,2020,2021,2022],value=(2021,2022))
-st.subheader(f"Productions en {year[1]} par rapport à {year[0]}", divider="rainbow")
-
-col = st.columns((5,5), gap='medium')
-with col[0]:
-    l=(df[f"Prod. Pétrole {year[1]} Bbls"].sum()-df[f"Prod. Pétrole {year[0]} Bbls"].sum())/1000
-    st.metric(label=f"Production totale de barils de pétrole en {year[1]} (Bbls)", value=f"{((df[f'Prod. Pétrole {year[1]} Bbls'].sum())/1000000).round(2)} M Bbls", delta=f"{l} K Bbls")
-    
-with col[1]:
-    p=(df[f"Prod Gaz N. {year[1]} MMSCF"].sum()-df[f"Prod Gaz N. {year[0]} MMSCF"].sum())
-    st.metric(label=f"Production totale de barils de Gaz naturel en {year[1]}", value=f"{((df[f'Prod Gaz N. {year[1]} MMSCF'].sum())/1000).round(2)} K MMSCF", delta= f"{p} MMSCF")
-
-st.subheader("Proportion de :", divider="rainbow") 
-col2=st.columns((2.5,2.5,2.5,2.5), gap='medium')
-  
-with col2[0]:
-    st.write("blocs en production")
-    st.altair_chart(make_donut((df[df["Statut du bloc"]=="En activité - production"].shape[0]/df.shape[0])*100, 'Proportion de blocs en production', 'green'))
-with col2[1]:    
-    st.write("blocs en exploration")
-    st.altair_chart(make_donut((df[df["Statut du bloc"]=="En activité - exploration"].shape[0]/df.shape[0])*100, 'Proportion de blocs exploration', 'blue'))
-with col2[2]:
-    st.write("blocs en négociation")
-    st.altair_chart(make_donut(np.round(((df[df["Statut du bloc"]=="En activité - négociation"].shape[0]/df.shape[0])*100)), 'Proportion de blocs en négociation', 'orange'))
-with col2[3]:
-    st.write("blocs libres")
-    st.altair_chart(make_donut((df[df["Statut du bloc"]=="Libre"].shape[0]/df.shape[0])*100, 'Proportion de blocs libres', 'red'))
-
-style_metric_cards(background_color='#0c0c0c',border_left_color="#f7a900",box_shadow=True)
-
-
-map()
-
-st.header("Base de données personnalisée",divider="rainbow" )
-def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds a UI on top of a dataframe to let viewers filter columns
-
-    Args:
-        df (pd.DataFrame): Original dataframe
-
-    Returns:
-        pd.DataFrame: Filtered dataframe
-    """
-    modify = st.checkbox("AJOUTEZ UN FILTRE")
-    
-
-    if not modify:
-        return df
-
-    df = df.copy()
-
-    # Try to convert datetimes into a standard format (datetime, no timezone)
-    for col in df.columns:
-        if is_object_dtype(df[col]):
-            try:
-                df[col] = pd.to_datetime(df[col])
-            except Exception:
-                pass
-
-        if is_datetime64_any_dtype(df[col]):
-            df[col] = df[col].dt.tz_localize(None)
-
-    modification_container = st.container()
-
-    with modification_container:
-        to_filter_columns = st.multiselect("Choisissez les variables que vous souhaitez utiliser comme filtre", df.columns)
-        for column in to_filter_columns:
-            left, right = st.columns((1, 20))
-            # Treat columns with < 10 unique values as categorical
-            int_columns = df.select_dtypes(include="int").columns
-            float_columns = df.select_dtypes(include="float").columns
-
-            if is_numeric_dtype(df[column]) :
-                _min = int(df[column].min())
-                _max = int(df[column].max())
-                user_num_input = right.slider(
-                    f"Valeurs de {column}",
-                    min_value=_min,
-                    max_value=_max,
-                    value=(_min, _max),
-                )
-                df = df[df[column].between(*user_num_input)]
-            elif is_datetime64_any_dtype(df[column]):
-                user_date_input = right.date_input(
-                    f"Valeur de {column}",
-                    value=(
-                        df[column].min(),
-                        df[column].max(),
-                    ),
-                )
-                if len(user_date_input) == 2:
-                    user_date_input = tuple(map(pd.to_datetime, user_date_input))
-                    start_date, end_date = user_date_input
-                    df = df.loc[df[column].between(start_date, end_date)]
-            elif is_categorical_dtype(df[column]) or df[column].unique().shape[0]<100:
-                arr=df[column].unique()
-                user_cat_input = right.multiselect(
-                    f"Valueur de {column}",
-                    arr
-                    ,
-                    default=list(arr),
-                )
-                df = df[df[column].isin(user_cat_input)]
-            else:
-                user_text_input = right.text_input(
-                    f"Substring or regex in {column}",
-                )
-                if user_text_input:
-                    df = df[df[column].astype(str).str.contains(user_text_input)]
-
-    return df
-    
-df_perso=filter_dataframe(df)
-st.dataframe(df_perso)
-
-colors = px.colors.sequential.Rainbow_r
-colors.extend(px.colors.sequential.Agsunset)
-colors.extend(px.colors.sequential.Aggrnyl)
-
-# SECTION GRAPHIQUE
-st.header("Analyses graphiques", divider="rainbow")
-
-#Analyse univariée
-st.subheader("Analyse graphique avec une seule variable")
-# Histogramme et Camembert sur la même ligne
-cam, hist = st.columns(2,gap='medium')
-with cam:
-    st.subheader("CAMEMBERT")
-    selected_categorical_variable_p = st.selectbox("***Sélectionnez la variable catégorielle pour le camembert***",['Type de profondeur', 'Opérateur1',
-    'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-    'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=1)
-    #📌 Charger les données
-        # 📌 Charger les données
-    df_counts = df[selected_categorical_variable_p].value_counts().reset_index()
-    df_counts.columns = ['Category', 'Count']
-
-    # 📌 Création du camembert avec adaptation à la colonne
-    pie = (
-        Pie(init_opts=opts.InitOpts(
-            width="100%",  # 📌 Permet au graphique de s'étirer selon la colonne
-            height="1000px",  # 📌 Ajuste la hauteur pour éviter l'écrasement
-            bg_color="black",  # ✅ Fond totalement transparent
-        ))
-        .add(
-            "", 
-            [list(z) for z in zip(df_counts["Category"], df_counts["Count"])], 
-            center=["50%", "60%"],
-        )
-        .set_global_opts(
-            title_opts=opts.TitleOpts(
-                title=f"Répartition de {selected_categorical_variable_p}",
-                pos_left="center",
-                pos_top="2%",
-                title_textstyle_opts=opts.TextStyleOpts(
-                    color="white",
-                    font_size=16
-                )
-            ),
-            legend_opts=opts.LegendOpts(is_show=False),
-        )
-        .set_series_opts(
-            label_opts=opts.LabelOpts(formatter="{b}: {c} ({d}%)", color="white"),
-            tooltip_opts=opts.TooltipOpts(trigger="item", formatter="{b}: {c} ({d}%)"),
-        )
-    )
-    st.markdown("""
-        <style>
-        div.echarts-container {
-            background: transparent !important;
-        }
-        </style>
-        """, unsafe_allow_html=True
-    )
-
-    st_pyecharts(pie)
-
-with hist:
-    st.subheader("HISTOGRAMME")
-    selected_categorical_variable = st.selectbox("***Sélectionnez la variable catégorielle pour l'histogramme***",['Type de profondeur', 'Opérateur1',
-    'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-    'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-    'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=1)
-    fig_histogram = px.histogram(df, x=df[selected_categorical_variable], color=df[selected_categorical_variable],title=f"Histogramme de {selected_categorical_variable}",color_discrete_sequence=colors)
-    fig_histogram.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.35)
-    fig_histogram.update_traces( textfont_color='rgba(255, 255, 255, 1)')
-    if selected_categorical_variable in ['Mois  de signature du 1er CPP',  'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1","Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1']:
-        fig_histogram.update_xaxes(categoryorder='array', categoryarray=order_of_months)
-    fig_histogram.update_xaxes(showticklabels=False)
-    st.plotly_chart(fig_histogram,use_container_width=True)
-
-st.subheader("Analyse de l'évolution de la production et de la vente")
-
-# 📌 Définition des grandeurs à analyser
-grandeurs_mapping = {
-    "Production de Gaz (en MMSCF)": [col for col in df.columns if "Prod Gaz" in col],
-    "Production de Pétrole (en Bbls)": [col for col in df.columns if "Prod. Pétrole" in col],
-    "Vente de Gaz (en MMBTU)": [col for col in df.columns if "Vente Gaz" in col]
+# Statuts actifs : trio validé toutes-paires sur #101722 ; « Libre » est une
+# classe neutre (aucune activité) rendue en gris volontairement désaturé,
+# séparée d'au moins ΔE 16 de chaque statut actif, toujours nommée en légende
+# et dans l'infobulle (jamais portée par la couleur seule).
+COULEURS_STATUT = {
+    "En activité - production": "#199e70",
+    "En activité - exploration": "#3987e5",
+    "En activité - négociation": "#d95926",
+    "Libre": "#a3adba",
 }
 
-# 📌 Sélection de la grandeur
-grandeur_selectionnee = st.selectbox("📊 Sélectionnez une grandeur :", list(grandeurs_mapping.keys()))
+# Jetons de design — ambiance « pétrole profond / ambre incandescent »
+COULEUR_FOND = "#05080d"          # noir pétrole
+COULEUR_SURFACE = "#101722"       # surface des cartes de verre
+COULEUR_TEXTE = "#eef2f8"
+COULEUR_TEXTE_2 = "#aab4c4"
+COULEUR_GRILLE = "rgba(238,242,248,0.07)"
+COULEUR_AXE = "rgba(238,242,248,0.16)"
+COULEUR_NEUTRE = "#1a2230"        # anneau de fond des jauges
+AMBRE = "#f6a21e"
+AMBRE_VIF = "#ffc24d"
+CUIVRE = "#c87f45"
 
-# 📌 Option d'affichage
-mode_affichage = st.radio("🔎 Mode d'affichage :", ["Valeur par bloc", "Somme totale"])
+POLICE_TEXTE = "Inter, 'Segoe UI', sans-serif"
+POLICE_TITRE = "Sora, Inter, sans-serif"
 
-# 📌 Récupérer les colonnes associées à la grandeur choisie
-colonnes_a_utiliser = grandeurs_mapping[grandeur_selectionnee]
+# Colonnes de dates exploitées pour dériver mois / année
+COLONNES_DATES = [
+    "Date de signature du 1er CPP",
+    "Date de la 2ème signature du CPP",
+    "Date de fin de validité d'exploration 1",
+    "Date de fin de validité d'exploration 2",
+    "Date de fin de validité exploitation 1",
+]
 
-# 📌 Extraction des années
-annees = [str(int("".join(filter(str.isdigit, col)))) for col in colonnes_a_utiliser]
+# Correction de coquilles dans les intitulés de colonnes (affichage uniquement,
+# le fichier source reste inchangé)
+RENOMMAGE_COLONNES = {
+    "Superfice (en Km²)": "Superficie (en km²)",
+    "Opérateur1": "Opérateur 1",
+    "Patenaires (hors PETROCI)": "Partenaires (hors PETROCI)",
+    "Patenaires CPP 2 (hors PETROCI)": "Partenaires CPP 2 (hors PETROCI)",
+    "Patenaires CPP 3 (hors PETROCI)": "Partenaires CPP 3 (hors PETROCI)",
+}
 
-# 📌 Création du DataFrame pour PyEcharts
-df_temps = df[['Blocs'] + colonnes_a_utiliser].copy()
-df_temps.columns = ['Blocs'] + annees  # Renommage des colonnes
 
-# 📌 Transformation des données pour affichage avec PyEcharts
-df_melted = df_temps.melt(id_vars="Blocs", var_name="Année", value_name="Valeur")
-df_melted = df_melted[df_melted["Valeur"] > 0]  # Supprimer les valeurs nulles
+# ---------------------------------------------------------------------------
+# Thème visuel : CSS immersif injecté sur toute l'application
+# ---------------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
+def fond_hero_base64() -> str:
+    """Encode l'image de fond (plateforme offshore au crépuscule) en base64."""
+    return base64.b64encode(FICHIER_HERO.read_bytes()).decode("ascii")
 
-# 🚨 Vérification s'il y a des données à afficher
-if df_melted.empty:
-    st.warning(f"Aucune donnée disponible pour {grandeur_selectionnee}. Veuillez choisir une autre grandeur.")
-else:
-    # 📌 Création du graphique PyEcharts avec plus de hauteur et légende à droite
-    line_chart = Line(init_opts=opts.InitOpts(
-        width="100%", height="2500px", bg_color="black"
-    ))
 
-    line_chart.add_xaxis(df_melted["Année"].unique().tolist())  # Ajout des années
+def inject_css(fond_b64: str) -> None:
+    """Injecte le thème « pétrole profond » : photo de plateforme offshore en
+    fond pleine page sous un dégradé d'opacité (image visible en haut,
+    quasi opaque en bas pour la lisibilité), verre, typographie."""
+    css = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-    # 📌 Mode d'affichage par bloc
-    if mode_affichage == "Valeur par bloc":
-        for bloc in df_melted["Blocs"].unique():
-            df_bloc = df_melted[df_melted["Blocs"] == bloc]
-            line_chart.add_yaxis(
-                bloc, df_bloc["Valeur"].tolist(),
-                is_smooth=True,
-                linestyle_opts=opts.LineStyleOpts(width=3),
-                label_opts=opts.LabelOpts(is_show=False)  # ❌ Suppression des étiquettes
-            )
-    else:
-        # Mode Somme Totale
-        df_summed = df_melted.groupby("Année")["Valeur"].sum().reset_index()
-        line_chart.add_yaxis(
-            "Total", df_summed["Valeur"].tolist(),
-            is_smooth=True,
-            linestyle_opts=opts.LineStyleOpts(width=3),
-            label_opts=opts.LabelOpts(is_show=False)  # ❌ Suppression des étiquettes
-        )
+:root {
+    --bg-0: #05080d;
+    --bg-1: #0a1018;
+    --bg-chaud: #140d05;
+    --surface: #101722;
+    --verre: rgba(15, 22, 33, 0.62);
+    --verre-bord: rgba(246, 162, 30, 0.14);
+    --verre-bord-vif: rgba(246, 162, 30, 0.38);
+    --ink: #eef2f8;
+    --ink-2: #aab4c4;
+    --ink-3: #7d8899;
+    --ambre: #f6a21e;
+    --ambre-vif: #ffc24d;
+    --cuivre: #c87f45;
+    --or: #e8c069;
+}
 
-    # 📌 Personnalisation du graphique
-    line_chart.set_global_opts(
-        title_opts=opts.TitleOpts(
-            title=f"📊 Évolution de {grandeur_selectionnee}",
-            pos_left="20%",
-            pos_top="5%",
-            title_textstyle_opts=opts.TextStyleOpts(color="white", font_size=16)
-        ),
-        xaxis_opts=opts.AxisOpts(
-            name="Année",
-            axislabel_opts=opts.LabelOpts(color="white"),
-            type_="category",
-            splitline_opts=opts.SplitLineOpts(is_show=False)  # ❌ Supprimer le quadrillage X
-        ),
-        yaxis_opts=opts.AxisOpts(
-            name="Valeur",
-            axislabel_opts=opts.LabelOpts(color="white"),
-            splitline_opts=opts.SplitLineOpts(is_show=False)  # ❌ Supprimer le quadrillage Y
-        ),
-        legend_opts=opts.LegendOpts(
-            pos_right="5%",
-            pos_top="15%",  # ✅ Déplacement de la légende à droite
-            orient="vertical",  # ✅ Alignement vertical de la légende
-            textstyle_opts=opts.TextStyleOpts(color="white")
+html, body, .stApp, [class*="css"] {
+    font-family: Inter, 'Segoe UI', sans-serif;
+}
+
+/* ---- Fond pleine page : plateforme pétrolière offshore au crépuscule ----
+   L'image reste visible dans le tiers haut (effet « waouh » à l'ouverture),
+   puis le voile sombre devient quasi opaque pour la lisibilité des
+   graphiques. L'image est fixe : le contenu glisse au-dessus d'elle. */
+.stApp {
+    background:
+        linear-gradient(180deg, rgba(4, 7, 12, 0.28) 0%, rgba(4, 7, 12, 0.44) 42%, rgba(5, 8, 14, 0.72) 70%, rgba(5, 8, 14, 0.94) 100%),
+        url(data:image/webp;base64,%%FOND_HERO%%) 68% bottom / auto 150% fixed no-repeat;
+    background-color: var(--bg-0);
+    color: var(--ink);
+}
+
+/* Vignette radiale : profondeur de champ, sans masquer la plateforme */
+.stApp::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse 130% 95% at 50% 24%, transparent 60%, rgba(2, 4, 8, 0.45) 100%);
+}
+
+/* Le contenu passe au-dessus des couches décoratives */
+.stApp > header, .stMain, section[data-testid="stSidebar"] {
+    position: relative;
+    z-index: 1;
+}
+
+/* ---- En-tête Streamlit transparent ---- */
+header[data-testid="stHeader"] {
+    background: transparent;
+}
+
+/* ---- Hero posé sur la photo ---- */
+.hero {
+    position: relative;
+    padding: 3.4rem 0 2.4rem 0;
+}
+/* Scrim local : renforce le contraste du texte sans voiler la plateforme,
+   à droite, qui reste le sujet de l'image. */
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: -3rem 30% -2rem -4rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 85% 95% at 28% 45%, rgba(2, 5, 9, 0.55), transparent 72%);
+    filter: blur(14px);
+}
+.hero-kicker {
+    font-family: Sora, Inter, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--ambre-vif);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
+    margin-bottom: 1.1rem;
+}
+.hero-kicker::before {
+    content: "";
+    display: inline-block;
+    width: 2.2rem;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ambre), transparent);
+    vertical-align: middle;
+    margin-right: 0.8rem;
+}
+.hero-titre {
+    font-family: Sora, Inter, sans-serif;
+    font-size: clamp(2.5rem, 5.4vw, 4.4rem);
+    font-weight: 800;
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+    margin: 0 0 1.1rem 0;
+    max-width: 17ch;
+    background: linear-gradient(100deg, #fdf6e9 8%, var(--ambre-vif) 42%, var(--ambre) 62%, var(--cuivre) 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--ambre-vif); /* repli si background-clip indisponible */
+    filter: drop-shadow(0 3px 18px rgba(0, 0, 0, 0.75));
+}
+.hero-sous-titre {
+    color: #cdd6e2;
+    font-size: 1.06rem;
+    max-width: 44rem;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
+}
+.hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.95rem;
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--verre);
+    border: 1px solid var(--verre-bord);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.badge .puce {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ambre);
+    box-shadow: 0 0 10px rgba(246, 162, 30, 0.9);
+}
+.badge--or { border-color: var(--verre-bord-vif); }
+
+/* ---- Titres de section ---- */
+.section-titre {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 2.6rem 0 0.4rem 0;
+}
+.section-titre .barre {
+    width: 4px;
+    height: 1.6rem;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--ambre-vif), var(--cuivre));
+    box-shadow: 0 0 12px rgba(246, 162, 30, 0.55);
+}
+.section-titre h2 {
+    font-family: Sora, Inter, sans-serif;
+    font-size: 1.32rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+/* Divider élégant : filet dégradé qui prolonge chaque titre de section */
+.section-titre::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    margin-left: 0.9rem;
+    background: linear-gradient(90deg, rgba(246, 162, 30, 0.38), rgba(238, 242, 248, 0.07) 55%, transparent);
+}
+.section-sous-titre {
+    color: var(--ink-3);
+    font-size: 0.88rem;
+    margin: 0.1rem 0 1rem 0.95rem;
+}
+
+/* ---- Cartes KPI premium : verre, icône, valeur énorme, delta coloré ---- */
+.kpi-carte {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    background: var(--verre);
+    border: 1px solid var(--verre-bord);
+    border-radius: 18px;
+    padding: 1.15rem 1.25rem 1.1rem;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.kpi-carte::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--ambre), transparent);
+    opacity: 0.55;
+}
+.kpi-carte:hover {
+    transform: translateY(-4px);
+    border-color: var(--verre-bord-vif);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(246, 162, 30, 0.14);
+}
+.kpi-haut {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.7rem;
+}
+.kpi-icone {
+    flex: 0 0 auto;
+    width: 2.3rem;
+    height: 2.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: linear-gradient(135deg, rgba(246, 162, 30, 0.22), rgba(200, 127, 69, 0.08));
+    border: 1px solid rgba(246, 162, 30, 0.32);
+    color: var(--ambre-vif);
+    box-shadow: 0 0 16px rgba(246, 162, 30, 0.12);
+}
+.kpi-icone svg { width: 1.2rem; height: 1.2rem; }
+.kpi-libelle {
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    line-height: 1.3;
+}
+.kpi-valeur {
+    font-family: Sora, Inter, sans-serif;
+    font-size: clamp(1.55rem, 1.9vw, 2.05rem);
+    font-weight: 800;
+    line-height: 1.08;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+}
+.kpi-unite {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-left: 0.2rem;
+    letter-spacing: 0;
+}
+.kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.kpi-delta--hausse {
+    color: #4fd6a2;
+    background: rgba(32, 178, 124, 0.13);
+    border: 1px solid rgba(79, 214, 162, 0.28);
+}
+.kpi-delta--baisse {
+    color: #ff958a;
+    background: rgba(220, 76, 60, 0.14);
+    border: 1px solid rgba(255, 149, 138, 0.28);
+}
+.kpi-delta--stable {
+    color: var(--ink-2);
+    background: rgba(170, 180, 196, 0.1);
+    border: 1px solid rgba(170, 180, 196, 0.22);
+}
+.kpi-ref {
+    margin-top: 0.45rem;
+    font-size: 0.73rem;
+    color: var(--ink-3);
+}
+
+/* ---- Cadres de verre appliqués via st.container(key=...) ---- */
+.st-key-cadre_carte, .st-key-cadre_donnees,
+.st-key-cadre_carte div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-cadre_donnees div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--verre);
+    border: 1px solid var(--verre-bord) !important;
+    border-radius: 18px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+/* Évite le double cadre : seul le niveau extérieur porte le verre */
+.st-key-cadre_carte div[data-testid="stVerticalBlockBorderWrapper"],
+.st-key-cadre_donnees div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: transparent;
+    border: none !important;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* ---- Graphiques Plotly : carte de verre ---- */
+div[data-testid="stPlotlyChart"] {
+    background: var(--verre);
+    border: 1px solid var(--verre-bord);
+    border-radius: 16px;
+    padding: 0.55rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.38);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+div[data-testid="stPlotlyChart"]:hover {
+    border-color: var(--verre-bord-vif);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 28px rgba(246, 162, 30, 0.10);
+}
+/* La carte géographique vit déjà dans un cadre : pas de double verre */
+.st-key-cadre_carte div[data-testid="stPlotlyChart"] {
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* ---- Barre latérale assortie ---- */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(185deg, rgba(8, 12, 19, 0.93), rgba(12, 13, 11, 0.95));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-right: 1px solid var(--verre-bord);
+}
+.sb-titre {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0 0.2rem 0;
+}
+.sb-logo {
+    width: 2.6rem;
+    height: 2.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    font-size: 1.25rem;
+    background: linear-gradient(135deg, rgba(246, 162, 30, 0.26), rgba(200, 127, 69, 0.1));
+    border: 1px solid rgba(246, 162, 30, 0.4);
+    box-shadow: 0 0 18px rgba(246, 162, 30, 0.18);
+}
+.sb-nom {
+    font-family: Sora, Inter, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.15;
+    background: linear-gradient(95deg, #fdf6e9, var(--ambre-vif) 55%, var(--cuivre));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--ambre-vif);
+}
+.sb-sous {
+    margin: 0;
+    font-size: 0.74rem;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+}
+.sb-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.4rem 0 0.2rem 0;
+    font-family: Sora, Inter, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ambre);
+}
+.sb-section::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(246, 162, 30, 0.3), transparent);
+}
+section[data-testid="stSidebar"] label p {
+    color: var(--ink-2) !important;
+    font-size: 0.84rem !important;
+}
+section[data-testid="stSidebar"] hr {
+    margin: 0.9rem 0;
+}
+
+/* ---- Boutons en dégradé ambre → cuivre ---- */
+div[data-testid="stDownloadButton"] button,
+div[data-testid="stButton"] button {
+    background: linear-gradient(120deg, var(--ambre-vif), var(--ambre) 55%, var(--cuivre));
+    color: #1a1104 !important;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    padding: 0.6rem 1.3rem;
+    box-shadow: 0 6px 20px rgba(246, 162, 30, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+div[data-testid="stDownloadButton"] button:hover,
+div[data-testid="stButton"] button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+    box-shadow: 0 10px 28px rgba(246, 162, 30, 0.4);
+}
+div[data-testid="stDownloadButton"] button:active,
+div[data-testid="stButton"] button:active {
+    transform: translateY(0);
+}
+div[data-testid="stDownloadButton"] button p,
+div[data-testid="stButton"] button p {
+    color: #1a1104 !important;
+}
+
+/* ---- Tableau de données ---- */
+div[data-testid="stDataFrame"] {
+    border: 1px solid var(--verre-bord);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- Sous-titres de section (h4 Markdown) ---- */
+.stMarkdown h4 {
+    font-family: Sora, Inter, sans-serif;
+    font-weight: 700;
+    color: var(--ink);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+
+/* ---- Divers ---- */
+hr { border-color: rgba(238, 242, 248, 0.08); }
+div[data-testid="stCaptionContainer"] { color: var(--ink-3); }
+.pied-page {
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 0.84rem;
+    padding: 1.6rem 0 0.6rem 0;
+}
+.pied-page .goutte { color: var(--ambre); }
+</style>
+"""
+    st.markdown(css.replace("%%FOND_HERO%%", fond_b64), unsafe_allow_html=True)
+
+
+def enregistrer_template_plotly() -> None:
+    """Déclare et active le gabarit Plotly assorti au thème sombre ambré."""
+    pio.templates["petrole_profond"] = go.layout.Template(
+        layout=go.Layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family=POLICE_TEXTE, color=COULEUR_TEXTE, size=13),
+            title=dict(
+                font=dict(family=POLICE_TITRE, size=16, color=COULEUR_TEXTE),
+                x=0.02,
+                xanchor="left",
+            ),
+            colorway=PALETTE,
+            hoverlabel=dict(
+                bgcolor="rgba(8,13,20,0.94)",
+                bordercolor="rgba(246,162,30,0.45)",
+                font=dict(family=POLICE_TEXTE, color=COULEUR_TEXTE, size=12),
+            ),
+            legend=dict(
+                bgcolor="rgba(0,0,0,0)",
+                font=dict(color=COULEUR_TEXTE_2, size=11.5),
+                title=dict(font=dict(color=COULEUR_TEXTE_2)),
+            ),
+            xaxis=dict(
+                gridcolor=COULEUR_GRILLE,
+                zerolinecolor=COULEUR_AXE,
+                linecolor=COULEUR_AXE,
+                tickfont=dict(color=COULEUR_TEXTE_2),
+                title=dict(font=dict(color=COULEUR_TEXTE_2)),
+            ),
+            yaxis=dict(
+                gridcolor=COULEUR_GRILLE,
+                zerolinecolor=COULEUR_AXE,
+                linecolor=COULEUR_AXE,
+                tickfont=dict(color=COULEUR_TEXTE_2),
+                title=dict(font=dict(color=COULEUR_TEXTE_2)),
+            ),
         )
     )
-
-    # 📌 Affichage dans Streamlit
-    st_pyecharts(line_chart)
-
-# Section des analyses croisées
-
-st.subheader("Analyse croisée entre variables catégorielles")
-#Type de l'histogramme croisé
-def barmode_selected(t):
-    if t =='empilé':
-        a='relative'  
-    else: 
-        a='group'
-    return a
+    pio.templates.default = "petrole_profond"
 
 
+def titre_section(texte: str, sous_titre: str | None = None) -> None:
+    """Affiche un titre de section avec barre lumineuse ambrée."""
+    st.markdown(
+        f'<div class="section-titre"><span class="barre"></span>'
+        f"<h2>{texte}</h2></div>",
+        unsafe_allow_html=True,
+    )
+    if sous_titre:
+        st.markdown(
+            f'<p class="section-sous-titre">{sous_titre}</p>',
+            unsafe_allow_html=True,
+        )
 
-selected_variable_1 = st.selectbox("***Variable 1***", ['Type de profondeur', 'Opérateur1',
-'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 
-'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 2", 
-"Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1','Année  de fin de validité exploitation 1'], index=7)
-selected_variable_2 = st.selectbox("***Variable 2***", ['Type de profondeur', 'Opérateur1',
-'Patenaires (hors PETROCI)', 'Opérateur CPP 2',
-'Patenaires CPP 2 (hors PETROCI)', 'Opérateur CPP 3',
-'Patenaires CPP 3 (hors PETROCI)', 'Statut du bloc','Mois  de signature du 1er CPP', 'Année  de signature du 1er CPP', 'Année  de la 2ème signature du CPP', 
-'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Année  de fin de validité d'exploration 1", 
-"Année  de fin de validité d'exploration 2", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1',
-'Année  de fin de validité exploitation 1'],index=1)
-st.sidebar.write(" ")
-st.sidebar.write(" ")
-st.sidebar.subheader("PARAMETRES DES GRAPHIQUES")
-type_graph=st.sidebar.radio("***:grey[Choisissez le type d'histogramme croisé]***", ['empilé','étalé'], index=1)
-if selected_variable_2 in [f"Prod Gaz N. {i} MMSCF" for i in range(2018,2023)] + [f"Prod. Pétrole {i} Bbls" for i in range(2018,2023)]:
-    fig_croisé = px.bar(df.groupby(selected_variable_1)[selected_variable_2].sum().reset_index(), x=selected_variable_1,y=selected_variable_2, color=selected_variable_2,barmode=barmode_selected(type_graph),color_continuous_scale=['red', 'yellow', 'green'],range_color=[0, 5])
+
+inject_css(fond_hero_base64())
+enregistrer_template_plotly()
+
+
+# ---------------------------------------------------------------------------
+# Chargement et préparation des données (mis en cache)
+# ---------------------------------------------------------------------------
+@st.cache_data(show_spinner="Chargement de la base pétrole…")
+def charger_base() -> pd.DataFrame:
+    """Charge la base Excel et dérive les variables calendaires."""
+    df = pd.read_excel(FICHIER_BASE)
+    df = df.rename(columns=RENOMMAGE_COLONNES)
+
+    # Harmonisation légère des libellés (espaces parasites, casse)
+    df["Type de profondeur"] = (
+        df["Type de profondeur"].str.strip().replace({"onshore": "Onshore"})
+    )
+
+    for col in COLONNES_DATES:
+        dates = pd.to_datetime(df[col], errors="coerce")
+        suffixe = col.removeprefix("Date ")
+        df[f"Mois {suffixe}"] = pd.Categorical(
+            dates.dt.month.map(NOM_MOIS), categories=ORDRE_MOIS, ordered=True
+        )
+        df[f"Année {suffixe}"] = dates.dt.year.astype("Int64")
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def charger_geojson() -> dict:
+    """Charge le GeoJSON des contours de blocs pétroliers."""
+    with open(FICHIER_GEOJSON, encoding="utf-8") as fichier:
+        return json.load(fichier)
+
+
+VARIABLES_SUFFIXES = [col.removeprefix("Date ") for col in COLONNES_DATES]
+VARIABLES_CATEGORIELLES = (
+    [
+        "Statut du bloc",
+        "Type de profondeur",
+        "Opérateur 1",
+        "Opérateur le plus récent",
+        "Partenaires (hors PETROCI)",
+        "Opérateur CPP 2",
+        "Partenaires CPP 2 (hors PETROCI)",
+        "Opérateur CPP 3",
+        "Partenaires CPP 3 (hors PETROCI)",
+    ]
+    + [f"Mois {s}" for s in VARIABLES_SUFFIXES]
+    + [f"Année {s}" for s in VARIABLES_SUFFIXES]
+)
+
+GRANDEURS_TEMPORELLES = {
+    "Production de pétrole (Bbls)": [f"Prod. Pétrole {a} Bbls" for a in ANNEES],
+    "Production de gaz naturel (MMSCF)": [f"Prod Gaz N. {a} MMSCF" for a in ANNEES],
+    "Vente de gaz naturel (MMBTU)": [f"Vente Gaz N. {a} MMBTU" for a in ANNEES],
+}
+
+
+# ---------------------------------------------------------------------------
+# Aides de mise en forme
+# ---------------------------------------------------------------------------
+def fmt_fr(valeur: float, decimales: int = 0) -> str:
+    """Formate un nombre avec séparateur de milliers à la française."""
+    return f"{valeur:,.{decimales}f}".replace(",", " ").replace(".", ",")
+
+
+# Icônes SVG (trait fin, couleur héritée) des cartes KPI
+_SVG = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{}</svg>'
+)
+ICONES_KPI = {
+    "petrole": _SVG.format(
+        '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5'
+        'c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>'
+    ),
+    "gaz": _SVG.format(
+        '<path d="M12 3c.9 2.7-2.7 4.5-2.7 7.4a2.7 2.7 0 0 0 5.4 0'
+        'c0-.8-.3-1.6-.8-2.3 2.1 1.2 3.3 3.1 3.3 5.4a5.2 5.2 0 0 1-10.4 0'
+        'C6.8 9.4 10.6 7 12 3z"/>'
+    ),
+    "vente": _SVG.format(
+        '<polyline points="3 17 9.5 10.5 13.5 14 21 6"/>'
+        '<polyline points="15 6 21 6 21 12"/>'
+    ),
+    "forage": _SVG.format(
+        '<path d="M9.3 21 12 4l2.7 17"/><path d="M6.5 21h11"/>'
+        '<path d="M10.3 14h3.4"/><path d="M10.9 9.5h2.2"/>'
+    ),
+}
+
+
+def carte_kpi(
+    colonne,
+    icone: str,
+    libelle: str,
+    valeur: str,
+    unite: str,
+    delta: float,
+    texte_delta: str,
+    annee_ref: int,
+) -> None:
+    """Affiche une carte KPI de verre : icône ambrée, grande valeur, delta coloré."""
+    if delta > 0:
+        classe, fleche = "hausse", "▲"
+    elif delta < 0:
+        classe, fleche = "baisse", "▼"
+    else:
+        classe, fleche = "stable", "◆"
+    colonne.markdown(
+        f'<div class="kpi-carte">'
+        f'<div class="kpi-haut">'
+        f'<span class="kpi-icone">{ICONES_KPI[icone]}</span>'
+        f'<span class="kpi-libelle">{libelle}</span>'
+        f"</div>"
+        f'<div class="kpi-valeur">{valeur}<span class="kpi-unite">{unite}</span></div>'
+        f'<span class="kpi-delta kpi-delta--{classe}">{fleche}&nbsp;{texte_delta}</span>'
+        f'<div class="kpi-ref">vs {annee_ref} (année de référence)</div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def styliser(fig: go.Figure, hauteur: int = 420) -> go.Figure:
+    """Applique les réglages communs (le gabarit « petrole_profond » fait le reste)."""
+    fig.update_layout(
+        height=hauteur,
+        margin=dict(l=10, r=24, t=56, b=16),
+    )
+    return fig
+
+
+def jauge_donut(pourcentage: float, libelle: str, couleur: str) -> go.Figure:
+    """Petit anneau de progression affichant une part en pourcentage."""
+    fig = go.Figure(
+        go.Pie(
+            values=[pourcentage, 100 - pourcentage],
+            hole=0.72,
+            marker=dict(colors=[couleur, COULEUR_NEUTRE]),
+            textinfo="none",
+            sort=False,
+            direction="clockwise",
+            hoverinfo="skip",
+        )
+    )
+    fig.add_annotation(
+        text=f"<b>{pourcentage:.0f} %</b>",
+        showarrow=False,
+        font=dict(family=POLICE_TITRE, size=20, color=COULEUR_TEXTE),
+    )
+    fig.update_layout(
+        showlegend=False,
+        height=180,
+        margin=dict(l=6, r=6, t=34, b=6),
+        paper_bgcolor="rgba(0,0,0,0)",
+        title=dict(
+            text=libelle,
+            x=0.5,
+            xanchor="center",
+            font=dict(family=POLICE_TEXTE, size=13, color=COULEUR_TEXTE_2),
+        ),
+    )
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Données
+# ---------------------------------------------------------------------------
+df = charger_base()
+geojson_blocs = charger_geojson()
+
+
+# ---------------------------------------------------------------------------
+# Barre latérale : filtres
+# ---------------------------------------------------------------------------
+with st.sidebar:
+    st.markdown(
+        '<div class="sb-titre"><span class="sb-logo">🛢️</span>'
+        '<div><p class="sb-nom">Pétrole CI</p>'
+        '<p class="sb-sous">Secteur amont · Côte d&rsquo;Ivoire</p></div></div>',
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+    st.markdown('<p class="sb-section">◷ Période</p>', unsafe_allow_html=True)
+    periode = st.select_slider(
+        "Année de référence → année étudiée",
+        options=ANNEES,
+        value=(2022, 2023),
+    )
+    annee_ref, annee_etude = periode
+
+    st.markdown(
+        '<p class="sb-section">⬡ Périmètre des blocs</p>', unsafe_allow_html=True
+    )
+    statuts = st.multiselect(
+        "Statut du bloc",
+        options=sorted(df["Statut du bloc"].dropna().unique()),
+        default=sorted(df["Statut du bloc"].dropna().unique()),
+    )
+    profondeurs = st.multiselect(
+        "Type de profondeur",
+        options=sorted(df["Type de profondeur"].dropna().unique()),
+        default=sorted(df["Type de profondeur"].dropna().unique()),
+    )
+
+    st.divider()
+    st.caption(
+        "Source : Cabinet du Ministre de l'Économie, du Plan et du "
+        "Développement — données publiques sur les blocs pétroliers ivoiriens."
+    )
+
+df_filtre = df[
+    df["Statut du bloc"].isin(statuts) & df["Type de profondeur"].isin(profondeurs)
+]
+
+# ---------------------------------------------------------------------------
+# En-tête : hero immersif
+# ---------------------------------------------------------------------------
+st.markdown(
+    f"""
+<div class="hero">
+  <div class="hero-kicker">Côte d'Ivoire · Énergie &amp; Hydrocarbures</div>
+  <h1 class="hero-titre">Secteur pétrolier amont&nbsp;ivoirien</h1>
+  <p class="hero-sous-titre">
+    Exploration interactive des blocs pétroliers de Côte d'Ivoire :
+    production, statuts des blocs, cartographie et analyses croisées
+    sur la période 2018-2023.
+  </p>
+  <div class="hero-badges">
+    <span class="badge badge--or"><span class="puce"></span>
+      Comparaison {annee_etude} vs {annee_ref}</span>
+    <span class="badge"><span class="puce"></span>
+      {len(df_filtre)} bloc(s) sélectionné(s) sur {len(df)}</span>
+    <span class="badge"><span class="puce"></span>
+      Données publiques 2018-2023</span>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
+# Indicateurs clés
+# ---------------------------------------------------------------------------
+titre_section(
+    f"Indicateurs clés {annee_etude}",
+    f"Évolutions exprimées par rapport à l'année de référence {annee_ref}.",
+)
+
+prod_petrole = df_filtre[f"Prod. Pétrole {annee_etude} Bbls"].sum()
+delta_petrole = prod_petrole - df_filtre[f"Prod. Pétrole {annee_ref} Bbls"].sum()
+prod_gaz = df_filtre[f"Prod Gaz N. {annee_etude} MMSCF"].sum()
+delta_gaz = prod_gaz - df_filtre[f"Prod Gaz N. {annee_ref} MMSCF"].sum()
+vente_gaz = df_filtre[f"Vente Gaz N. {annee_etude} MMBTU"].sum()
+delta_vente = vente_gaz - df_filtre[f"Vente Gaz N. {annee_ref} MMBTU"].sum()
+forages = df_filtre[f"Nbre de forages {annee_etude}"].sum()
+delta_forages = forages - df_filtre[f"Nbre de forages {annee_ref}"].sum()
+
+def _signe(valeur: float) -> str:
+    return "+" if valeur > 0 else ""
+
+
+kpi = st.columns(4, gap="medium")
+carte_kpi(
+    kpi[0], "petrole", "Production de pétrole",
+    fmt_fr(prod_petrole / 1e6, 2), " M Bbls",
+    delta_petrole, f"{_signe(delta_petrole)}{fmt_fr(delta_petrole)} Bbls", annee_ref,
+)
+carte_kpi(
+    kpi[1], "gaz", "Production de gaz",
+    fmt_fr(prod_gaz / 1e3, 2), " K MMSCF",
+    delta_gaz, f"{_signe(delta_gaz)}{fmt_fr(delta_gaz)} MMSCF", annee_ref,
+)
+carte_kpi(
+    kpi[2], "vente", "Vente de gaz naturel",
+    fmt_fr(vente_gaz / 1e6, 2), " M MMBTU",
+    delta_vente, f"{_signe(delta_vente)}{fmt_fr(delta_vente)} MMBTU", annee_ref,
+)
+carte_kpi(
+    kpi[3], "forage", "Forages réalisés",
+    fmt_fr(forages), "",
+    delta_forages, f"{_signe(delta_forages)}{fmt_fr(delta_forages)} forage(s)", annee_ref,
+)
+
+# ---------------------------------------------------------------------------
+# Répartition des blocs par statut
+# ---------------------------------------------------------------------------
+titre_section(
+    "Répartition des blocs par statut",
+    "Parts calculées sur l'ensemble des blocs de la base.",
+)
+
+donuts = st.columns(4, gap="medium")
+definitions_donuts = [
+    ("En activité - production", "Blocs en production"),
+    ("En activité - exploration", "Blocs en exploration"),
+    ("En activité - négociation", "Blocs en négociation"),
+    ("Libre", "Blocs libres"),
+]
+for colonne, (statut, libelle) in zip(donuts, definitions_donuts):
+    part = 100 * (df["Statut du bloc"] == statut).mean()
+    colonne.plotly_chart(
+        jauge_donut(part, libelle, COULEURS_STATUT[statut]),
+        width="stretch",
+        key=f"donut_{statut}",
+    )
+
+# ---------------------------------------------------------------------------
+# Carte des blocs pétroliers
+# ---------------------------------------------------------------------------
+titre_section(
+    "Carte des blocs pétroliers",
+    "Survolez un bloc pour consulter son opérateur, sa superficie et sa production.",
+)
+
+df_carte = df_filtre.dropna(subset=["Blocs"])
+fig_carte = px.choropleth_map(
+    df_carte,
+    geojson=geojson_blocs,
+    locations="Blocs",
+    featureidkey="properties.name",
+    color="Statut du bloc",
+    color_discrete_map=COULEURS_STATUT,
+    category_orders={"Statut du bloc": list(COULEURS_STATUT)},
+    map_style="carto-darkmatter",
+    zoom=6.1,
+    center={"lat": 4.6, "lon": -5.1},
+    opacity=0.65,
+    custom_data=[
+        df_carte["Blocs"],
+        df_carte["Opérateur le plus récent"].fillna("Non attribué"),
+        df_carte["Superficie (en km²)"],
+        df_carte["Type de profondeur"],
+        df_carte["Prod. Pétrole 2023 Bbls"],
+        df_carte["Prod Gaz N. 2023 MMSCF"],
+    ],
+)
+fig_carte.update_traces(
+    hovertemplate=(
+        "<b>Bloc %{customdata[0]}</b><br>"
+        "Opérateur le plus récent : %{customdata[1]}<br>"
+        "Superficie : %{customdata[2]:,.0f} km²<br>"
+        "Type de profondeur : %{customdata[3]}<br>"
+        "Production de pétrole 2023 : %{customdata[4]:,.0f} Bbls<br>"
+        "Production de gaz 2023 : %{customdata[5]:,.0f} MMSCF"
+        "<extra></extra>"
+    )
+)
+fig_carte.update_layout(
+    height=560,
+    margin=dict(l=0, r=0, t=0, b=0),
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family=POLICE_TEXTE, color=COULEUR_TEXTE),
+    legend=dict(
+        title="Statut du bloc",
+        bgcolor="rgba(8,13,20,0.82)",
+        bordercolor="rgba(246,162,30,0.25)",
+        borderwidth=1,
+        x=0.012,
+        y=0.985,
+    ),
+)
+with st.container(border=True, key="cadre_carte"):
+    st.plotly_chart(fig_carte, width="stretch")
+    st.caption(
+        "Les blocs sans contour géographique référencé dans le GeoJSON "
+        "n'apparaissent pas sur la carte."
+    )
+
+# ---------------------------------------------------------------------------
+# Base de données personnalisable
+# ---------------------------------------------------------------------------
+titre_section(
+    "Base de données personnalisée",
+    "Filtrez colonne par colonne puis exportez votre sélection au format CSV.",
+)
+
+
+def filtrer_dataframe(donnees: pd.DataFrame) -> pd.DataFrame:
+    """Ajoute une interface de filtrage colonne par colonne au tableau."""
+    activer = st.checkbox("Ajouter des filtres sur les colonnes")
+    if not activer:
+        return donnees
+
+    donnees = donnees.copy()
+    colonnes_choisies = st.multiselect(
+        "Colonnes à utiliser comme filtres", donnees.columns
+    )
+    for colonne in colonnes_choisies:
+        serie = donnees[colonne].dropna()
+        if serie.empty:
+            st.info(f"La colonne « {colonne} » ne contient aucune valeur.")
+            continue
+
+        if is_numeric_dtype(serie):
+            borne_min, borne_max = float(serie.min()), float(serie.max())
+            if borne_min == borne_max:
+                continue
+            bornes = st.slider(
+                f"Valeurs de « {colonne} »",
+                min_value=borne_min,
+                max_value=borne_max,
+                value=(borne_min, borne_max),
+            )
+            donnees = donnees[donnees[colonne].between(*bornes)]
+        elif is_datetime64_any_dtype(serie):
+            plage = st.date_input(
+                f"Plage de dates de « {colonne} »",
+                value=(serie.min(), serie.max()),
+            )
+            if len(plage) == 2:
+                debut, fin = map(pd.to_datetime, plage)
+                donnees = donnees[donnees[colonne].between(debut, fin)]
+        elif (
+            isinstance(donnees[colonne].dtype, pd.CategoricalDtype)
+            or is_string_dtype(serie)
+            and serie.nunique() < 100
+        ):
+            modalites = sorted(serie.unique().astype(str))
+            choix = st.multiselect(
+                f"Valeurs de « {colonne} »", modalites, default=modalites
+            )
+            donnees = donnees[donnees[colonne].astype(str).isin(choix)]
+        else:
+            motif = st.text_input(f"Texte ou expression régulière dans « {colonne} »")
+            if motif:
+                donnees = donnees[
+                    donnees[colonne].astype(str).str.contains(motif, na=False)
+                ]
+    return donnees
+
+
+with st.container(border=True, key="cadre_donnees"):
+    df_personnalise = filtrer_dataframe(df_filtre)
+    st.dataframe(df_personnalise, width="stretch")
+    st.download_button(
+        "Télécharger la sélection (CSV)",
+        df_personnalise.to_csv(index=False).encode("utf-8-sig"),
+        file_name="blocs_petroliers_selection.csv",
+        mime="text/csv",
+    )
+
+# ---------------------------------------------------------------------------
+# Analyses graphiques
+# ---------------------------------------------------------------------------
+titre_section(
+    "Analyses graphiques",
+    "Analyses univariées, évolutions temporelles et croisements de variables.",
+)
+
+# --- Analyse univariée -----------------------------------------------------
+st.markdown("#### Analyse univariée")
+col_pie, col_bar = st.columns(2, gap="medium")
+
+with col_pie:
+    variable_pie = st.selectbox(
+        "Variable du diagramme circulaire",
+        VARIABLES_CATEGORIELLES,
+        index=2,
+        key="variable_pie",
+    )
+    comptes = (
+        df_filtre[variable_pie]
+        .value_counts()
+        .rename_axis("Modalité")
+        .reset_index(name="Effectif")
+    )
+    fig_pie = px.pie(
+        comptes,
+        names="Modalité",
+        values="Effectif",
+        hole=0.45,
+        title=f"Répartition — {variable_pie}",
+        color_discrete_sequence=PALETTE,
+    )
+    fig_pie.update_traces(
+        textposition="inside",
+        textinfo="percent",
+        hovertemplate="<b>%{label}</b><br>%{value} bloc(s) — %{percent}<extra></extra>",
+    )
+    fig_pie.update_layout(legend=dict(font=dict(size=10.5)))
+    st.plotly_chart(styliser(fig_pie, hauteur=440), width="stretch")
+
+with col_bar:
+    variable_bar = st.selectbox(
+        "Variable du diagramme en barres",
+        VARIABLES_CATEGORIELLES,
+        index=1,
+        key="variable_bar",
+    )
+    fig_bar = px.histogram(
+        df_filtre,
+        x=variable_bar,
+        color=variable_bar,
+        title=f"Effectifs — {variable_bar}",
+        color_discrete_sequence=PALETTE,
+    )
+    if variable_bar.startswith("Mois "):
+        fig_bar.update_xaxes(categoryorder="array", categoryarray=ORDRE_MOIS)
+    fig_bar.update_layout(showlegend=False, yaxis_title="Nombre de blocs")
+    st.plotly_chart(styliser(fig_bar, hauteur=440), width="stretch")
+
+# --- Évolution temporelle ---------------------------------------------------
+st.markdown("#### Évolution de la production et des ventes (2018-2023)")
+
+param_evo = st.columns((3, 2), gap="medium")
+grandeur = param_evo[0].selectbox(
+    "Grandeur analysée", list(GRANDEURS_TEMPORELLES)
+)
+mode_affichage = param_evo[1].radio(
+    "Mode d'affichage",
+    ["Somme totale", "Détail par bloc"],
+    horizontal=True,
+)
+
+colonnes_grandeur = GRANDEURS_TEMPORELLES[grandeur]
+df_evolution = (
+    df_filtre[["Blocs"] + colonnes_grandeur]
+    .set_axis(["Blocs"] + [str(a) for a in ANNEES], axis=1)
+    .melt(id_vars="Blocs", var_name="Année", value_name="Valeur")
+)
+df_evolution = df_evolution[df_evolution["Valeur"] > 0]
+
+if df_evolution.empty:
+    st.warning(
+        f"Aucune donnée disponible pour « {grandeur} » avec les filtres actuels."
+    )
 else:
-    fig_croisé = px.histogram(df, x=selected_variable_1, color=selected_variable_2,barmode=barmode_selected(type_graph),color_discrete_sequence= colors)
-    m=['Mois  de signature du 1er CPP', 'Mois  de la 2ème signature du CPP', "Mois  de fin de validité d'exploration 1", "Mois  de fin de validité d'exploration 2",'Mois  de fin de validité exploitation 1']
-    if selected_variable_1 in m or selected_variable_2 in m:
-        fig_croisé.update_xaxes(categoryorder='array', categoryarray=order_of_months)
-fig_croisé.update_layout(title=f'Graphique en barres groupées - {selected_variable_1 } vs {selected_variable_2 }')
-fig_croisé.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)','paper_bgcolor': 'rgba(0, 0, 0, 0.3)',},title_x=0.20)
+    if mode_affichage == "Somme totale":
+        df_trace = df_evolution.groupby("Année", as_index=False)["Valeur"].sum()
+        fig_evolution = px.line(
+            df_trace,
+            x="Année",
+            y="Valeur",
+            markers=True,
+            title=f"{grandeur} — somme totale",
+        )
+    else:
+        fig_evolution = px.line(
+            df_evolution.sort_values("Année"),
+            x="Année",
+            y="Valeur",
+            color="Blocs",
+            markers=True,
+            title=f"{grandeur} — détail par bloc",
+            color_discrete_sequence=PALETTE,
+        )
+    fig_evolution.update_traces(line=dict(width=2), marker=dict(size=8))
+    fig_evolution.update_layout(yaxis_title=grandeur, xaxis_title="Année")
+    st.plotly_chart(styliser(fig_evolution, hauteur=480), width="stretch")
 
-st.plotly_chart(fig_croisé,  use_container_width=True)
+# --- Analyse croisée ---------------------------------------------------------
+st.markdown("#### Analyse croisée entre variables catégorielles")
 
+param_croise = st.columns((2, 2, 1), gap="medium")
+variable_1 = param_croise[0].selectbox(
+    "Variable 1 (axe horizontal)", VARIABLES_CATEGORIELLES, index=0
+)
+variable_2 = param_croise[1].selectbox(
+    "Variable 2 (couleur)", VARIABLES_CATEGORIELLES, index=1
+)
+type_barres = param_croise[2].radio(
+    "Type de barres", ["Groupées", "Empilées"], horizontal=True
+)
 
+fig_croise = px.histogram(
+    df_filtre,
+    x=variable_1,
+    color=variable_2,
+    barmode="group" if type_barres == "Groupées" else "relative",
+    title=f"{variable_1} selon {variable_2}",
+    color_discrete_sequence=PALETTE,
+)
+if variable_1.startswith("Mois "):
+    fig_croise.update_xaxes(categoryorder="array", categoryarray=ORDRE_MOIS)
+fig_croise.update_layout(yaxis_title="Nombre de blocs")
+st.plotly_chart(styliser(fig_croise, hauteur=480), width="stretch")
 
-
-
+# ---------------------------------------------------------------------------
+# Pied de page
+# ---------------------------------------------------------------------------
+st.divider()
+st.markdown(
+    '<p class="pied-page"><span class="goutte">◆</span> '
+    "Tableau de bord du secteur pétrolier amont ivoirien — données publiques, "
+    "blocs pétroliers de Côte d'Ivoire (2018-2023) "
+    '<span class="goutte">◆</span></p>',
+    unsafe_allow_html=True,
+)

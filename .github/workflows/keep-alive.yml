@@ -1,0 +1,58 @@
+# ---------------------------------------------------------------------------
+# Workflow « keep-alive » — anti-hibernation Streamlit Community Cloud
+#
+# À quoi ça sert :
+#   Streamlit Community Cloud met une application en hibernation après
+#   environ 12 heures sans trafic. Ce workflow envoie un simple ping HTTP
+#   toutes les 4 heures vers l'URL publique de l'application, ce qui la
+#   maintient éveillée : un visiteur du portfolio la voit donc instantanément.
+#
+# Comment définir APP_URL (obligatoire, sinon le workflow ne fait rien) :
+#   Sur GitHub : Settings → Secrets and variables → Actions → onglet
+#   « Variables » → « New repository variable » :
+#     Name  : APP_URL
+#     Value : l'URL publique de l'appli (ex. https://mon-appli.streamlit.app)
+#
+# Important :
+#   GitHub désactive automatiquement les workflows planifiés (schedule) après
+#   60 jours sans activité sur le dépôt. Si cela arrive, il suffit de le
+#   relancer manuellement une fois via l'onglet Actions → « Keep-alive
+#   Streamlit » → « Run workflow » (workflow_dispatch) pour le réactiver.
+# ---------------------------------------------------------------------------
+name: Keep-alive Streamlit
+
+on:
+  schedule:
+    # Toutes les 4 heures, à la minute 49 (décalée pour éviter les pics de charge)
+    - cron: "49 */4 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping de l'application Streamlit
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://civ-oil-dashboard.streamlit.app/' }}
+        run: |
+          if [ -z "${APP_URL}" ]; then
+            echo "La variable de dépôt APP_URL n'est pas définie : aucun ping envoyé."
+            echo "Définissez-la dans Settings → Secrets and variables → Actions → Variables → New repository variable."
+            exit 0
+          fi
+          echo "Ping de ${APP_URL} ..."
+          http_code=$(curl --silent --show-error --output /dev/null \
+            --location --max-time 60 \
+            --retry 2 --retry-delay 15 --retry-all-errors \
+            --write-out "%{http_code}" \
+            "${APP_URL}") || http_code="000"
+          echo "Code HTTP reçu : ${http_code}"
+          case "${http_code}" in
+            2*|3*)
+              echo "Succès : l'application répond, elle reste éveillée."
+              ;;
+            *)
+              echo "Échec du ping (code HTTP ${http_code}). Vérifiez l'URL et l'état de l'application."
+              exit 1
+              ;;
+          esac
