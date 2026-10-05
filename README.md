@@ -1,43 +1,47 @@
 # Tableau de bord du secteur pétrolier amont ivoirien
 
 Dashboard interactif d'analyse du secteur pétrolier amont de la Côte d'Ivoire,
-construit avec **Streamlit** et **Plotly**. Il permet d'explorer les 50 blocs
-pétroliers du pays : statuts, opérateurs, contrats de partage de production
-(CPP), productions de pétrole et de gaz naturel, et ventes de gaz sur la
-période 2018-2023.
+construit avec **Streamlit**, **Plotly**, **Altair** et **PyECharts**. Il permet
+d'explorer les 50 blocs pétroliers du pays : statuts, opérateurs, contrats de
+partage de production (CPP), productions de pétrole et de gaz naturel, et ventes
+de gaz sur la période 2018-2023.
+
+Application en ligne : <https://civ-oil-dashboard.streamlit.app>
 
 ## Fonctionnalités
 
-- **Indicateurs clés (KPI)** : production de pétrole (Bbls), production de gaz
-  naturel (MMSCF), ventes de gaz (MMBTU) et nombre de forages, avec variation
-  entre deux années choisies par l'utilisateur.
-- **Répartition des blocs par statut** : jauges circulaires des parts de blocs
-  en production, en exploration, en négociation et libres.
-- **Carte interactive des blocs pétroliers** : carte choroplèthe (Plotly,
-  fond CARTO) des contours de blocs issus d'un GeoJSON, colorée par statut,
+- **Productions de l'année par rapport à une année de référence** (pétrole en
+  Bbls, gaz naturel en MMSCF), période choisie dans la barre latérale
+  (2018-2023).
+- **Proportion de blocs** en production, en exploration, en négociation et
+  libres (anneaux Altair).
+- **Carte interactive des blocs pétroliers** : carte choroplèthe Plotly (fond
+  OpenStreetMap) des contours de blocs issus d'un GeoJSON, colorée par statut,
   avec infobulle détaillée (opérateur, superficie, type de profondeur,
   productions 2023).
-- **Base de données personnalisable** : tableau filtrable colonne par colonne
-  (numérique, date, catégoriel, texte/regex) et export CSV de la sélection.
+- **Base de données personnalisée** : tableau filtrable colonne par colonne
+  (numérique, date, catégoriel, texte/regex).
 - **Analyses graphiques** :
-  - analyse univariée (diagramme circulaire et diagramme en barres) sur les
-    variables catégorielles et calendaires ;
-  - évolution temporelle 2018-2023 des productions et ventes (somme totale ou
-    détail par bloc) ;
-  - analyse croisée entre deux variables catégorielles (barres groupées ou
-    empilées).
-- **Filtres globaux** dans la barre latérale : période d'analyse, statut du
-  bloc, type de profondeur.
+  - camembert (PyECharts) et histogramme (Plotly) d'une variable catégorielle ;
+  - évolution 2018-2023 des productions et ventes (valeur par bloc ou somme
+    totale, PyECharts) ;
+  - analyse croisée entre deux variables catégorielles (barres étalées ou
+    empilées, réglage dans la barre latérale).
 
 ## Stack technique
 
 | Outil | Rôle |
 |---|---|
 | [Streamlit](https://streamlit.io) | Framework de l'application web |
-| [Plotly Express](https://plotly.com/python/) | Graphiques et carte choroplèthe interactifs |
-| [pandas](https://pandas.pydata.org) | Préparation et agrégation des données |
-| [openpyxl](https://openpyxl.readthedocs.io) | Lecture des fichiers Excel |
-| GeoJSON | Contours géographiques des blocs pétroliers |
+| [Plotly Express](https://plotly.com/python/) | Carte choroplèthe, histogrammes |
+| [Altair](https://altair-viz.github.io) | Anneaux de proportion |
+| [PyECharts](https://pyecharts.org) + streamlit-echarts | Camembert, courbes d'évolution |
+| streamlit-extras | Style des cartes d'indicateurs |
+| [pandas](https://pandas.pydata.org) / [openpyxl](https://openpyxl.readthedocs.io) | Lecture et préparation des données Excel |
+
+Les versions sont **épinglées exactement** (`==`) dans `requirements.txt` :
+ce sont les versions testées en local (Python 3.12 et 3.13). Gardez cet
+épinglage pour que l'appli en ligne s'affiche comme en local.
 
 ## Données
 
@@ -70,8 +74,8 @@ streamlit run Oil_Dashboard.py
 ```
 
 L'application est alors disponible sur `http://localhost:8501`. Le thème
-sombre (palette ambre / bleu pétrole) est défini dans
-`.streamlit/config.toml`.
+sombre (texte blanc) est défini dans `.streamlit/config.toml` ; l'image de fond
+et l'image de la barre latérale sont chargées depuis leurs URL d'origine.
 
 ## Structure du projet
 
@@ -83,7 +87,7 @@ sombre (palette ambre / bleu pétrole) est défini dans
 ├── Coordonnées géographiques Blocs.xlsx  # Coordonnées sources
 ├── requirements.txt                      # Dépendances Python
 ├── .streamlit/
-│   └── config.toml                       # Thème de l'application
+│   └── config.toml                       # Thème de l'application (sombre)
 └── README.md
 ```
 
@@ -93,9 +97,8 @@ sombre (palette ambre / bleu pétrole) est défini dans
 2. Cliquez sur **New app**, puis choisissez ce dépôt, la branche à déployer et le fichier principal `Oil_Dashboard.py`.
 3. Cliquez sur **Deploy** : l'application est construite puis mise en ligne sur une URL du type `https://<nom-de-l-appli>.streamlit.app`.
 
-> **Version Python** : dans **Advanced settings** (avant le déploiement), choisissez une
-> version récente de Python (3.11 ou 3.12), compatible avec les versions minimales
-> listées dans `requirements.txt`.
+> **Version Python** : dans **Advanced settings** (avant le déploiement), choisissez
+> Python 3.12 ou 3.13 (versions avec lesquelles `requirements.txt` a été testé).
 
 ### Éviter l'hibernation
 
