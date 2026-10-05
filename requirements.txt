@@ -1,4 +1,12 @@
-streamlit>=1.49
-pandas>=2.2
-plotly>=5.24
-openpyxl>=3.1
+# Versions exactes testées (Python 3.12 et 3.13) — garder l'épinglage « == »
+# pour que l'appli en ligne soit identique à la version locale.
+streamlit==1.65.0
+pandas==2.3.3
+numpy==2.5.3
+plotly==7.1.0
+altair==6.3.0
+openpyxl==3.1.5
+pyecharts==2.1.0
+streamlit-echarts==0.4.0
+simplejson==4.2.0
+streamlit-extras==1.6.0
