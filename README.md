@@ -106,7 +106,7 @@ Streamlit Community Cloud met l'application en veille après environ 12 heures s
 trafic (un visiteur tombe alors sur un écran « l'appli se réveille » pendant
 plusieurs dizaines de secondes). Pour l'éviter, ce dépôt contient le workflow
 GitHub Actions [`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml)
-qui envoie un ping HTTP à l'application toutes les 4 heures (cron `49 */4 * * *`).
+qui ouvre l'application dans un vrai navigateur (Chromium sans écran, via Playwright) toutes les 4 heures (cron `49 */4 * * *`) et clique sur « Yes, get this app back up! » si elle dort. Un simple ping HTTP ne suffit pas sur Streamlit Community Cloud.
 
 Après le déploiement, renseignez l'URL de l'appli dans une variable de dépôt :
 
