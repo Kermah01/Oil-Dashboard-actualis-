@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block actions %}
+<select id="preset">
+  <option value="grand">Grand champ eaux profondes (ordre de grandeur Baleine)</option>
+  <option value="moyen">Champ offshore moyen</option>
+  <option value="onshore">Onshore (profit oil État 52,5 % — type CPP Elephant Oil)</option>
+</select>
+{% endblock %}
+{% block content %}
+<div class="grid split">
+  <details class="card param" open><summary>Paramètres du modèle</summary><div id="ctrls"></div></details>
+  <div>
+    <section class="grid g-3" id="kpis"></section>
+    <section class="grid g-2" style="margin-top:16px">
+      <div class="card span-2">
+        <div class="card-h"><div><h3>Partage annuel de la valeur</h3><div class="sub">Millions USD · cost oil, profit oil État, profit oil contracteurs</div></div></div>
+        <div id="c-split" class="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Profil de production</h3><div class="sub">Milliers de barils par jour</div></div></div>
+        <div id="c-prof" class="chart short"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Flux de trésorerie cumulés</h3><div class="sub">Millions USD, non actualisés</div></div></div>
+        <div id="c-cum" class="chart short"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Sensibilité au Brent</h3><div class="sub">Part nationale (État + PETROCI) et TRI du contracteur privé, en %</div></div></div>
+        <div id="c-sens" class="chart short"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Qui capte la valeur du gisement ?</h3><div class="sub">Répartition du chiffre d'affaires cumulé</div></div></div>
+        <div id="c-pie" class="chart short"></div>
+      </div>
+    </section>
+    <div class="note" style="margin-top:16px"><b>Modèle pédagogique.</b> Les termes contractuels (cost stop, tranches de profit oil, participation de PETROCI) sont des <b>hypothèses</b> réglables, pas les termes réels des CPP, qui sont confidentiels. Conformément au Code pétrolier, la part de l'État inclut l'impôt BIC. Modèle annuel en dollars constants : cost oil plafonné (report des coûts non récupérés), profit oil par tranches de production journalière, PETROCI partenaire au prorata des coûts et des revenus, bonus de signature à l'année 1.</div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const PARAMS = [
+  ["Marché", [["brent", "Brent", 30, 130, 1, "$/bbl"], ["fx", "Taux de change", 500, 700, 5, "FCFA/$"]]],
+  ["Gisement", [["plateau", "Débit de plateau", 5, 250, 5, "kb/j"], ["ramp", "Montée en puissance", 1, 4, 1, "ans"], ["duree", "Durée du plateau", 1, 12, 1, "ans"],
+    ["declin", "Déclin après plateau", 3, 25, 1, "%/an"], ["horizon", "Durée de vie", 10, 30, 1, "ans"]]],
+  ["Coûts", [["capex", "CAPEX de développement", 100, 12000, 100, "M$"], ["opex", "OPEX", 3, 35, 0.5, "$/bbl"]]],
+  ["Termes du CPP (hypothèses)", [["stop", "Cost stop", 30, 90, 1, "% du CA"], ["t1", "Profit oil État ≤ 50 kb/j", 20, 85, 0.5, "%"], ["t2", "Profit oil État 50-100 kb/j", 20, 85, 0.5, "%"],
+    ["t3", "Profit oil État > 100 kb/j", 20, 85, 0.5, "%"], ["petroci", "Participation PETROCI", 0, 40, 1, "%"], ["bonus", "Bonus de signature", 0, 100, 1, "M$"], ["taux", "Taux d'actualisation", 5, 15, 0.5, "%"]]],
+];
+const PRESETS = {
+  grand: { brent: 75, fx: 600, plateau: 150, ramp: 2, duree: 6, declin: 10, horizon: 25, capex: 8000, opex: 10, stop: 60, t1: 40, t2: 50, t3: 60, petroci: 15, bonus: 10, taux: 10 },
+  moyen: { brent: 75, fx: 600, plateau: 40, ramp: 2, duree: 4, declin: 12, horizon: 20, capex: 1800, opex: 14, stop: 60, t1: 40, t2: 50, t3: 60, petroci: 15, bonus: 5, taux: 10 },
+  onshore: { brent: 75, fx: 600, plateau: 8, ramp: 1, duree: 4, declin: 12, horizon: 18, capex: 250, opex: 18, stop: 60, t1: 52.5, t2: 52.5, t3: 52.5, petroci: 20, bonus: 2, taux: 10 },
+};
+let P = window.__P || (window.__P = { ...PRESETS.grand });
+$("#ctrls").innerHTML = PARAMS.map(([g, ps]) => `<div class="group-t">${g}</div>` + ps.map(([k, l, mi, ma, st, u]) =>
+  `<div class="ctrl"><div class="row"><span>${l}</span><b id="v-${k}"></b></div><input type="range" id="${k}" min="${mi}" max="${ma}" step="${st}"></div>`).join("")).join("");
+const UNIT = Object.fromEntries(PARAMS.flatMap(([, ps]) => ps.map(p => [p[0], p[5]])));
+function sync() { Object.keys(P).forEach(k => { $("#" + k).value = P[k]; $("#v-" + k).textContent = nf(P[k], P[k] % 1 ? 1 : 0) + " " + UNIT[k]; }); }
+
+function profile(p) {
+  const q = [], dev = 3;
+  for (let t = 0; t < p.horizon; t++) {
+    const k = t - dev + 1;               // 1re huile en année 3
+    let v = 0;
+    if (k >= 1 && k <= p.ramp) v = p.plateau * k / (p.ramp + 1);
+    else if (k > p.ramp && k <= p.ramp + p.duree) v = p.plateau;
+    else if (k > p.ramp + p.duree) v = p.plateau * Math.pow(1 - p.declin / 100, k - p.ramp - p.duree);
+    q.push(v);
+  }
+  return q;
+}
+function stateShare(q, p) { // q en kb/j, tranches incrémentales
+  if (q <= 0) return 0;
+  const a = Math.min(q, 50), b = Math.max(0, Math.min(q, 100) - 50), c = Math.max(0, q - 100);
+  return (a * p.t1 + b * p.t2 + c * p.t3) / q / 100;
+}
+function run(p) {
+  const q = profile(p), capexSplit = [.35, .40, .25];
+  let carry = 0;
+  const rows = q.map((qd, t) => {
+    const vol = qd * 1e3 * 365 / 1e6;             // Mbbl
+    const rev = vol * p.brent;                      // M$
+    const capex = t < 3 ? p.capex * capexSplit[t] : 0, opex = vol * p.opex;
+    const pool = carry + capex + opex, co = Math.min(pool, rev * p.stop / 100);
+    carry = pool - co;
+    const po = rev - co, poE = po * stateShare(qd, p), poC = po - poE;
+    const group = co + poC - capex - opex, bonus = t === 0 ? p.bonus : 0;
+    const prive = group * (1 - p.petroci / 100) - bonus, petroci = group * p.petroci / 100, etat = poE + bonus;
+    return { t, an: t + 1, qd, vol, rev, capex, opex, co, poE, poC, prive, petroci, etat };
+  });
+  const sum = k => rows.reduce((s, r) => s + r[k], 0);
+  const npv = (k, r = p.taux / 100) => rows.reduce((s, x) => s + x[k] / Math.pow(1 + r, x.t), 0);
+  const irr = k => { let lo = -.9, hi = 3; if (npv(k, lo) * npv(k, hi) > 0) return null; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; npv(k, m) > 0 ? lo = m : hi = m; } return (lo + hi) / 2; };
+  const net = sum("rev") - sum("capex") - sum("opex");
+  let cum = 0, payback = null; rows.forEach(r => { cum += r.prive; if (payback == null && cum > 0 && r.t > 2) payback = r.an; });
+  return { rows, net, gt: 100 * (sum("etat") + sum("petroci")) / net, etat: sum("etat"), petroci: sum("petroci"), prive: sum("prive"),
+    npvE: npv("etat"), npvC: npv("prive"), irrC: irr("prive"), payback, rev: sum("rev"), couts: sum("capex") + sum("opex"), reserves: sum("vol") };
+}
+function breakeven() { let lo = 10, hi = 200; for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; run({ ...P, brent: m }).npvC > 0 ? hi = m : lo = m; } return (lo + hi) / 2; }
+
+function render() {
+  const R = run(P), be = breakeven(), yrs = R.rows.map(r => "A" + r.an);
+  const kp = [
+    ["Recettes cumulées de l'État", nf(R.etat * P.fx / 1e3, 0), "Md FCFA", `+ PETROCI : ${nf(R.petroci * P.fx / 1e3, 0)} Md FCFA`],
+    ["Part nationale (government take)", nf(R.gt, 1), "%", "(État + PETROCI) / flux net du projet"],
+    ["VAN de l'État @" + nf(P.taux, 1) + " %", nf(R.npvE, 0), "M$", "valeur actuelle des recettes"],
+    ["TRI du contracteur privé", R.irrC == null ? "—" : nf(100 * R.irrC, 1), "%", `VAN : ${nf(R.npvC, 0)} M$`],
+    ["Brent d'équilibre", nf(be, 1), "$/bbl", "VAN contracteur = 0"],
+    ["Réserves produites", nf(R.reserves, 0), "M bbl", R.payback ? `retour sur investissement en année ${R.payback}` : "pas de retour sur investissement"],
+  ];
+  $("#kpis").innerHTML = kp.map((k, i) => `<div class="card kpi"><div class="lbl">${k[0]}</div><div class="val" ${i === 1 ? `style="color:${C.amber}"` : ""}>${k[1]}<small>${k[2]}</small></div><div class="delta">${k[3]}</div></div>`).join("");
+  const parts = [["Cost oil", "co", "#5b6b88"], ["Profit oil État", "poE", C.s[2]], ["Profit oil contracteurs", "poC", C.s[0]]];
+  chart("c-split", {
+    tooltip: { axisPointer: { type: "shadow" }, valueFormatter: v => nf(v, 0) + " M$" },
+    xAxis: { type: "category", data: yrs }, yAxis: { type: "value" },
+    series: [...parts.map(([n, k, c], j) => ({ name: n, type: "bar", stack: "s", barWidth: "62%", data: R.rows.map(r => Math.round(r[k])), itemStyle: barStyle(c, j === 2) })),
+      { name: "CAPEX", type: "bar", stack: "neg", barWidth: "62%", barGap: "-100%", data: R.rows.map(r => r.capex ? -Math.round(r.capex) : null), itemStyle: { color: C.s[7], borderRadius: [0, 0, 4, 4] } }],
+  });
+  chart("c-prof", {
+    legend: false, tooltip: { valueFormatter: v => nf(v, 1) + " kb/j" },
+    xAxis: { type: "category", data: yrs, boundaryGap: false }, yAxis: { type: "value" },
+    series: [{ type: "line", data: R.rows.map(r => r.qd), symbol: "none", lineStyle: { width: 2, color: C.amber },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "#ffb54755" }, { offset: 1, color: "#ffb54700" }]) },
+      markLine: { symbol: "none", silent: true, lineStyle: { color: C.muted, type: "dashed" }, label: { color: C.muted, fontSize: 10, position: "insideStartTop" }, data: [{ yAxis: 50, label: { formatter: "tranche 50 kb/j" } }, { yAxis: 100, label: { formatter: "100 kb/j" } }].filter(m => m.yAxis < P.plateau * 1.2) } }],
+  });
+  const cum = k => { let s = 0; return R.rows.map(r => Math.round(s += r[k])); };
+  chart("c-cum", {
+    tooltip: { valueFormatter: v => nf(v, 0) + " M$" }, grid: { right: 60 },
+    xAxis: { type: "category", data: yrs, boundaryGap: false }, yAxis: { type: "value" },
+    series: [["État", "etat", C.s[2]], ["PETROCI", "petroci", C.s[1]], ["Contracteur privé", "prive", C.s[0]]].map(([n, k, c]) => ({ name: n, type: "line", data: cum(k), symbol: "none",
+      lineStyle: { width: 2, color: c }, itemStyle: { color: c }, endLabel: { show: true, formatter: p => nf(p.value / 1e3, 1) + " Md$", color: C.text2, fontSize: 11 } })),
+  });
+  const bs = []; for (let b = 40; b <= 120; b += 5) bs.push(b);
+  const sens = bs.map(b => run({ ...P, brent: b }));
+  chart("c-sens", {
+    tooltip: { valueFormatter: v => v == null ? "—" : nf(v, 1) + " %" },
+    xAxis: { type: "category", data: bs.map(b => b + " $"), boundaryGap: false }, yAxis: { type: "value", axisLabel: { formatter: "{value} %" } },
+    series: [{ name: "Part nationale", type: "line", data: sens.map(s => +s.gt.toFixed(1)), symbol: "none", lineStyle: { width: 2, color: C.amber }, itemStyle: { color: C.amber } },
+      { name: "TRI contracteur", type: "line", data: sens.map(s => s.irrC == null ? null : +(100 * s.irrC).toFixed(1)), symbol: "none", lineStyle: { width: 2, color: C.s[0] }, itemStyle: { color: C.s[0] },
+        markLine: { symbol: "none", silent: true, lineStyle: { color: C.muted, type: "dashed" }, label: { color: C.muted, formatter: "Brent actuel" }, data: [{ xAxis: Math.round(P.brent / 5) * 5 + " $" }] } }],
+  });
+  const tot = R.rev, seg = [["Coûts (CAPEX + OPEX)", R.couts, "#5b6b88"], ["État", R.etat, C.s[2]], ["PETROCI", R.petroci, C.s[1]], ["Contracteur privé", R.prive, C.s[0]]];
+  chart("c-pie", {
+    legend: { data: seg.map(s => s[0]) }, grid: { left: 0, right: 0, top: 40, bottom: 0, containLabel: false },
+    tooltip: { trigger: "item", formatter: p => `${p.seriesName} : <b>${nf(p.value, 1)} %</b> (${nf(seg[p.seriesIndex][1] / 1e3, 1)} Md$)` },
+    xAxis: { type: "value", max: 100, show: false }, yAxis: { type: "category", data: [""], show: false },
+    series: seg.map(([n, v, c], i) => ({ name: n, type: "bar", stack: "p", barWidth: 46, data: [Math.max(0, 100 * v / tot)],
+      itemStyle: { color: c, borderColor: C.surface, borderWidth: 2, borderRadius: i === 0 ? [6, 0, 0, 6] : i === 3 ? [0, 6, 6, 0] : 0 },
+      label: { show: 100 * v / tot > 7, color: "#fff", fontWeight: 600, formatter: p => nf(p.value, 0) + " %" } })),
+  });
+}
+$("#ctrls").oninput = e => { P[e.target.id] = +e.target.value; sync(); render(); };
+$("#preset").onchange = e => { P = window.__P = { ...PRESETS[e.target.value] }; sync(); render(); };
+sync(); render();
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

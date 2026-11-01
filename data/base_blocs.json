@@ -1,0 +1,631 @@
+{
+ "CI-803": {
+  "superficie": 1344.74,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "",
+    "date": "2022-12-09"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-802": {
+  "superficie": 654.81,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2021-07-13"
+   }
+  ],
+  "statut_base": "En activité - production"
+ },
+ "CI-801": {
+  "superficie": 791.58,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2022-03-03"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-710": {
+  "superficie": 1338.5,
+  "profondeur": "Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-709": {
+  "superficie": 3480.96,
+  "profondeur": "Deep à ultra deep Water",
+  "historique": [
+   {
+    "operateur": "MURPHY",
+    "partenaires": "",
+    "date": "2023-06-14"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-708": {
+  "superficie": 1446.27,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "KOSMOS ENERGY",
+    "partenaires": "BP",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2024-08-01"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-707": {
+  "superficie": 2925.81,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "KOSMOS ENERGY",
+    "partenaires": "BP",
+    "date": "2017-12-21"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-706": {
+  "superficie": 910.83,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "TOTAL E&P",
+    "partenaires": "",
+    "date": "2019-06-03"
+   },
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2024-08-01"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-705": {
+  "superficie": 2289.33,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [
+   {
+    "operateur": "TOTAL E&P",
+    "partenaires": "",
+    "date": "2019-06-03"
+   },
+   {
+    "operateur": "ICE OIL & GAS",
+    "partenaires": "",
+    "date": "2023-11-13"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-704": {
+  "superficie": 1962.05,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-703": {
+  "superficie": 2322.83,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-702": {
+  "superficie": 3343.81,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-701": {
+  "superficie": 3049.14,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-700": {
+  "superficie": 3133.57,
+  "profondeur": "Shallow à Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-605": {
+  "superficie": 6472.0,
+  "profondeur": "Ultra Deep Water",
+  "historique": [
+   {
+    "operateur": "TOTAL E&P",
+    "partenaires": "",
+    "date": "2016-08-16"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-604": {
+  "superficie": 6415.29,
+  "profondeur": "Ultra Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-603": {
+  "superficie": 5542.94,
+  "profondeur": "Ultra Deep Water",
+  "historique": [
+   {
+    "operateur": "KOSMOS ENERGY",
+    "partenaires": "BP",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "EXXON MOBIL",
+    "partenaires": "",
+    "date": "2014-12-16"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-602": {
+  "superficie": 3873.55,
+  "profondeur": "Ultra Deep Water",
+  "historique": [
+   {
+    "operateur": "KOSMOS ENERGY",
+    "partenaires": "BP",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "EXXON MOBIL",
+    "partenaires": "",
+    "date": "2014-12-16"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-601": {
+  "superficie": 3852.01,
+  "profondeur": "Ultra Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-600": {
+  "superficie": 6415.29,
+  "profondeur": "Ultra Deep Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-531": {
+  "superficie": 757.93,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "MURPHY",
+    "partenaires": "",
+    "date": "2023-06-14"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-526": {
+  "superficie": 2979.08,
+  "profondeur": "Ultra Deep Water",
+  "historique": [
+   {
+    "operateur": "KOSMOS ENERGY",
+    "partenaires": "BP",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2024-08-01"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-525": {
+  "superficie": 1221.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "AFREN",
+    "partenaires": "TALEVERAS",
+    "date": "2013-11-18"
+   },
+   {
+    "operateur": "VITOL",
+    "partenaires": "NOMAD ENERGY",
+    "date": "2016-01-20"
+   },
+   {
+    "operateur": "PETROCI HOLDING",
+    "partenaires": "",
+    "date": "2023-10-02"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-524": {
+  "superficie": 250.62,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "",
+    "date": "2018-03-01"
+   },
+   {
+    "operateur": "LUKOIL",
+    "partenaires": "VANCO",
+    "date": "2012-10-01"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-523": {
+  "superficie": 612.84,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "TALAVERAS",
+    "partenaires": "",
+    "date": "2012-01-18"
+   },
+   {
+    "operateur": "VITOL",
+    "partenaires": "NOMAD ENERGY",
+    "date": "2016-01-20"
+   },
+   {
+    "operateur": "PETROCI HOLDING",
+    "partenaires": "",
+    "date": "2023-10-02"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-522": {
+  "superficie": 1228.65,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "ELEPHANT OIL",
+    "partenaires": "",
+    "date": "2024-07-30"
+   }
+  ],
+  "statut_base": "En activité - négociation"
+ },
+ "CI-521": {
+  "superficie": 1280.06,
+  "profondeur": "Onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-12-21"
+   },
+   {
+    "operateur": "ELEPHANT OIL",
+    "partenaires": "",
+    "date": "2024-07-30"
+   }
+  ],
+  "statut_base": "En activité - négociation"
+ },
+ "CI-520": {
+  "superficie": 1067.95,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2018-03-01"
+   },
+   {
+    "operateur": "ELEPHANT OIL",
+    "partenaires": "",
+    "date": "2024-07-30"
+   }
+  ],
+  "statut_base": "En activité - négociation"
+ },
+ "CI-519": {
+  "superficie": 887.03,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-10-11"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-518": {
+  "superficie": 1250.44,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-10-11"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-513": {
+  "superficie": 1443.1,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "OPHIR ENERGY",
+    "partenaires": "African Petroleum",
+    "date": "2015-12-16"
+   },
+   {
+    "operateur": "AFRICAN PETROLEUM",
+    "partenaires": "",
+    "date": "2011-12-19"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-504": {
+  "superficie": 398.79,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2019-06-03"
+   },
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2024-08-01"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-804": {
+  "superficie": null,
+  "profondeur": "Shallow Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-503": {
+  "superficie": null,
+  "profondeur": "Shallow Water",
+  "historique": [],
+  "statut_base": "Libre"
+ },
+ "CI-502": {
+  "superficie": 222.26,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "FOXTROT",
+    "partenaires": "",
+    "date": "2018-01-08"
+   },
+   {
+    "operateur": "MURPHY",
+    "partenaires": "",
+    "date": "2023-06-14"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-501": {
+  "superficie": 511.96,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2019-06-03"
+   },
+   {
+    "operateur": "TALAVERAS",
+    "partenaires": "",
+    "date": "2012-01-18"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-500": {
+  "superficie": null,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "PETROCI",
+    "partenaires": "Sahara",
+    "date": "2012-01-18"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-401": {
+  "superficie": 284.54,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2022-03-03"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-40": {
+  "superficie": 175.0,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "CNR",
+    "partenaires": "SVENSKA",
+    "date": "1998-04-09"
+   }
+  ],
+  "statut_base": "En activité - production"
+ },
+ "CI-302": {
+  "superficie": 1412.06,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-10-11"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-301": {
+  "superficie": 1495.31,
+  "profondeur": "onshore",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "CAIRN",
+    "date": "2017-10-11"
+   }
+  ],
+  "statut_base": "Libre"
+ },
+ "CI-27": {
+  "superficie": 584.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "FOXTROT",
+    "partenaires": "",
+    "date": "1994-12-14"
+   }
+  ],
+  "statut_base": "En activité - production"
+ },
+ "CI-26": {
+  "superficie": 234.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "CNR",
+    "partenaires": "TULLOW",
+    "date": "1995-12-20"
+   }
+  ],
+  "statut_base": "En activité - production"
+ },
+ "CI-24": {
+  "superficie": 821.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "DRAGON OIL",
+    "partenaires": "",
+    "date": "2018-07-01"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-205": {
+  "superficie": 1271.0,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2017-03-22"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-12": {
+  "superficie": 1085.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "FOXTROT",
+    "partenaires": "SECI",
+    "date": "2018-01-08"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-11": {
+  "superficie": 77.0,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "PETROCI CI11",
+    "partenaires": "CIPEM, HYDRODRILL",
+    "date": "1992-06-27"
+   }
+  ],
+  "statut_base": "En activité - production"
+ },
+ "CI-103": {
+  "superficie": 2511.56,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "TULLOW",
+    "partenaires": "ANADAKRO",
+    "date": "2007-04-05"
+   },
+   {
+    "operateur": "MURPHY",
+    "partenaires": "",
+    "date": "2023-06-14"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-102": {
+  "superficie": null,
+  "profondeur": "Shallow Water",
+  "historique": [
+   {
+    "operateur": "MURPHY",
+    "partenaires": "",
+    "date": "2023-06-14"
+   }
+  ],
+  "statut_base": "En activité - exploration"
+ },
+ "CI-101": {
+  "superficie": 1565.0,
+  "profondeur": "Deep Water",
+  "historique": [
+   {
+    "operateur": "ENI",
+    "partenaires": "",
+    "date": "2017-03-22"
+   }
+  ],
+  "statut_base": "En activité - production"
+ }
+}

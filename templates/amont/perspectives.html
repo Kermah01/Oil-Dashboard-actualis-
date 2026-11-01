@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block actions %}<div class="seg" id="scen"><button data-s="prudent">Prudent</button><button class="on" data-s="central">Central</button><button data-s="ambitieux">Ambitieux</button></div>{% endblock %}
+{% block content %}
+<div class="grid split">
+  <details class="card param" open><summary>Hypothèses du scénario</summary><div id="ctrls"></div></details>
+  <div>
+    <section class="grid g-4" id="kpis"></section>
+    <div class="card" style="margin-top:16px">
+      <div class="card-h"><div><h3>Production de pétrole brut : historique et projection</h3><div class="sub">Milliers de barils par jour · 2018-2024 observé (DGH), 2025-2035 projeté</div></div></div>
+      <div id="c-oil" class="chart tall"></div>
+      <div class="source">Objectifs : 200 000 b/j en 2030 et 500 000 b/j en 2035 (Plan directeur, MMPE, juin 2025). Phase 3 de Baleine : FID du 25/05/2026, démarrage sous 36 mois.</div>
+    </div>
+    <section class="grid g-2" style="margin-top:16px">
+      <div class="card">
+        <div class="card-h"><div><h3>Gaz naturel</h3><div class="sub">MMscf/j · objectif 600 en 2030</div></div></div>
+        <div id="c-gas" class="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div><h3>Recettes pétrolières de l'État</h3><div class="sub">Milliards FCFA · historique (MEF) et projection</div></div></div>
+        <div id="c-rev" class="chart"></div>
+      </div>
+    </section>
+    <div class="note" style="margin-top:16px"><b>Projection, pas prévision.</b> Les volumes de Calao et des nouvelles découvertes, la date de démarrage de la phase 3 et le Brent sont des hypothèses réglables. Les recettes appliquent le taux de prélèvement apparent observé (recettes pétrolières / valeur brute du brut), qui varie en réalité avec la phase de récupération des coûts : en début de vie d'un champ, le cost oil réduit fortement la part de l'État.</div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const r24 = D.recettes.at(-1), A = D.annees, days = y => (y % 4 === 0 ? 366 : 365);
+const mat24 = D.matures_petrole.at(-1) / 366 / 1e3;
+const bal = D.champs.find(c => c.nom === "Baleine").serie;
+const gasLeg24 = (D.total_gaz.at(-1) - bal.gaz.at(-1)) / 366;
+const PARAMS = [
+  ["Marché", [["brent", "Brent", 40, 120, 1, "$/bbl"], ["fx", "Taux de change", 500, 700, 5, "FCFA/$"], ["take", "Taux de prélèvement", 8, 35, .5, "%"]]],
+  ["Champs matures", [["declin", "Déclin annuel", 0, 20, .5, "%/an"], ["baobab", "Redéveloppement Baobab", 0, 20, 1, "kb/j"], ["baobabAn", "… à partir de", 2026, 2032, 1, ""]]],
+  ["Baleine", [["bal12", "Plateau phases 1+2", 30, 90, 1, "kb/j"], ["p3", "Apport phase 3", 0, 120, 5, "kb/j"], ["p3An", "Démarrage phase 3", 2028, 2032, 1, ""], ["balDecl", "Déclin après 2032", 0, 20, .5, "%/an"]]],
+  ["Nouveaux développements", [["calao", "Calao (liquides)", 0, 80, 5, "kb/j"], ["calaoAn", "Démarrage Calao", 2028, 2034, 1, ""], ["autres", "Autres découvertes", 0, 300, 10, "kb/j"], ["autresAn", "… à partir de", 2029, 2035, 1, ""]]],
+  ["Gaz", [["gDecl", "Déclin du gaz historique", 0, 20, .5, "%/an"], ["gCalao", "Gaz de Calao", 0, 400, 10, "MMscf/j"]]],
+];
+const SCEN = {
+  prudent: { brent: 60, fx: 600, take: 15, declin: 11, baobab: 0, baobabAn: 2028, bal12: 55, p3: 70, p3An: 2030, balDecl: 10, calao: 0, calaoAn: 2032, autres: 0, autresAn: 2033, gDecl: 9, gCalao: 0 },
+  central: { brent: 70, fx: 600, take: +r24.taux_prelevement.toFixed(1), declin: +(-100 * D.tcam_matures).toFixed(1), baobab: 5, baobabAn: 2027, bal12: 60, p3: 90, p3An: 2029, balDecl: 8, calao: 25, calaoAn: 2031, autres: 40, autresAn: 2032, gDecl: 7, gCalao: 150 },
+  ambitieux: { brent: 80, fx: 600, take: 20, declin: 7, baobab: 10, baobabAn: 2026, bal12: 65, p3: 100, p3An: 2028, balDecl: 6, calao: 50, calaoAn: 2029, autres: 200, autresAn: 2030, gDecl: 5, gCalao: 300 },
+};
+let P = window.__P || (window.__P = { ...SCEN.central });
+$("#ctrls").innerHTML = PARAMS.map(([g, ps]) => `<div class="group-t">${g}</div>` + ps.map(([k, l, mi, ma, st, u]) =>
+  `<div class="ctrl"><div class="row"><span>${l}</span><b id="v-${k}"></b></div><input type="range" id="${k}" min="${mi}" max="${ma}" step="${st}"></div>`).join("")).join("");
+const UNIT = Object.fromEntries(PARAMS.flatMap(([, ps]) => ps.map(p => [p[0], p[5]])));
+const sync = () => Object.keys(P).forEach(k => { $("#" + k).value = P[k]; $("#v-" + k).textContent = (UNIT[k] ? nf(P[k], P[k] % 1 ? 1 : 0) : P[k]) + " " + UNIT[k]; });
+const ramp = (y, start, v, n = 2) => y < start ? 0 : v * Math.min(1, (y - start + 1) / (n + 1) * 1.5);
+const FUT = Array.from({ length: 11 }, (_, i) => 2025 + i), ALL = [...A, ...FUT];
+
+function project(p) {
+  return FUT.map(y => {
+    const k = y - 2024;
+    const mat = mat24 * Math.pow(1 - p.declin / 100, k) + (y >= p.baobabAn ? p.baobab : 0);
+    let b12 = y === 2025 ? p.bal12 * .75 : p.bal12;
+    const d = y > 2032 ? Math.pow(1 - p.balDecl / 100, y - 2032) : 1;
+    const baleine = b12 * d + ramp(y, p.p3An, p.p3) * d;
+    const calao = ramp(y, p.calaoAn, p.calao), autres = ramp(y, p.autresAn, p.autres, 3);
+    const gLeg = gasLeg24 * Math.pow(1 - p.gDecl / 100, k);
+    const gBal = (y === 2025 ? 60 : 80) * d + ramp(y, p.p3An, 120) * d;
+    const gCal = ramp(y, p.calaoAn, p.gCalao);
+    const tot = mat + baleine + calao + autres;
+    const rev = tot * 1e3 * days(y) * p.brent * p.fx * p.take / 100 / 1e9;
+    return { y, mat, baleine, calao, autres, tot, gLeg, gBal, gCal, gTot: gLeg + gBal + gCal, rev };
+  });
+}
+function render() {
+  const F = project(P), at = y => F.find(f => f.y === y);
+  const histMat = D.matures_petrole.map((v, i) => v / days(A[i]) / 1e3), histBal = bal.petrole.map((v, i) => v / days(A[i]) / 1e3);
+  const cum = F.slice(0, 11).reduce((s, f) => s + f.rev, 0);
+  const kp = [["Production 2030", nf(at(2030).tot, 0), "kb/j", `objectif 200 kb/j : ${at(2030).tot >= 200 ? "<span class='up'>atteint</span>" : `<span class='down'>écart ${nf(200 - at(2030).tot, 0)} kb/j</span>`}`],
+    ["Production 2035", nf(at(2035).tot, 0), "kb/j", `objectif 500 kb/j : ${at(2035).tot >= 500 ? "<span class='up'>atteint</span>" : `<span class='down'>écart ${nf(500 - at(2035).tot, 0)} kb/j</span>`}`],
+    ["Gaz 2030", nf(at(2030).gTot, 0), "MMscf/j", `objectif 600 : ${at(2030).gTot >= 600 ? "<span class='up'>atteint</span>" : `<span class='down'>écart ${nf(600 - at(2030).gTot, 0)}</span>`}`],
+    ["Recettes pétrole 2025-2035", nf(cum, 0), "Md FCFA", `soit ${nf(cum / 11, 0)} Md FCFA/an en moyenne (2024 : ${nf(r24.rec_petrole, 0)})`]];
+  $("#kpis").innerHTML = kp.map(k => `<div class="card kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}<small>${k[2]}</small></div><div class="delta">${k[3]}</div></div>`).join("");
+  const pad = arr => [...arr, ...Array(FUT.length).fill(null)];
+  const srcs = [["Champs matures", "mat", C.s[1]], ["Baleine", "baleine", C.s[0]], ["Calao", "calao", C.s[6]], ["Autres découvertes", "autres", C.s[2]]];
+  const histOf = { mat: histMat, baleine: histBal, calao: A.map(() => 0), autres: A.map(() => 0) };
+  chart("c-oil", {
+    tooltip: { valueFormatter: v => v == null ? "—" : nf(v, 1) + " kb/j" },
+    legend: { data: srcs.map(s => s[0]) },
+    xAxis: { type: "category", data: ALL, boundaryGap: false }, yAxis: { type: "value", max: v => Math.ceil(Math.max(v.max, 560) / 100) * 100 }, grid: { right: 30, top: 50 },
+    series: [...srcs.map(([n, k, c]) => ({ name: n, type: "line", stack: "o", symbol: "none", lineStyle: { width: 1.5, color: c }, itemStyle: { color: c },
+      areaStyle: { color: c, opacity: .55 }, data: [...histOf[k], ...F.map(f => f[k])].map(v => +v.toFixed(1)) })),
+      { name: "Objectifs", type: "scatter", symbol: "diamond", symbolSize: 16, itemStyle: { color: C.amber, borderColor: "#fff", borderWidth: 2 },
+        data: [[ALL.indexOf(2030), 200], [ALL.indexOf(2035), 500]], label: { show: true, position: "left", distance: 10, color: C.amber, fontWeight: 700, formatter: p => `Objectif ${p.value[1]} kb/j` }, tooltip: { show: false } }],
+  }).setOption({ series: [{ markArea: { silent: true, itemStyle: { color: "rgba(255,255,255,.035)" }, label: { show: true, color: C.muted, formatter: "Projection", position: "insideTop" }, data: [[{ xAxis: 2024 }, { xAxis: 2035 }]] } }] });
+  const histG = D.total_gaz.map((v, i) => v / days(A[i]));
+  const gs = [["Gaz historique", F.map(f => f.gLeg), C.s[3]], ["Baleine", F.map(f => f.gBal), C.s[0]], ["Calao", F.map(f => f.gCal), C.s[6]]];
+  chart("c-gas", {
+    tooltip: { valueFormatter: v => v == null ? "—" : nf(v, 0) + " MMscf/j" },
+    xAxis: { type: "category", data: ALL, boundaryGap: false }, yAxis: { type: "value", max: v => Math.ceil(Math.max(v.max, 650) / 100) * 100 }, grid: { top: 60 },
+    series: [{ name: "Observé", type: "line", data: pad(histG.map(Math.round)), symbol: "none", lineStyle: { width: 2.5, color: C.text }, itemStyle: { color: C.text } },
+      ...gs.map(([n, d, c]) => ({ name: n, type: "line", stack: "g", symbol: "none", lineStyle: { width: 1, color: c }, itemStyle: { color: c }, areaStyle: { color: c, opacity: .5 }, data: [...Array(A.length).fill(null), ...d.map(Math.round)] })),
+      { name: "Objectif", type: "scatter", symbol: "diamond", symbolSize: 14, itemStyle: { color: C.amber, borderColor: "#fff", borderWidth: 2 }, data: [[ALL.indexOf(2030), 600]], tooltip: { show: false } }],
+  });
+  chart("c-rev", {
+    tooltip: { axisPointer: { type: "shadow" }, valueFormatter: v => v == null ? "—" : nf(v, 0) + " Md FCFA" },
+    xAxis: { type: "category", data: ALL }, yAxis: { type: "value" },
+    series: [{ name: "Observé (MEF)", type: "bar", stack: "r", barWidth: "60%", data: pad(D.recettes.map(r => r.rec_petrole)), itemStyle: { color: "#8a94a6", borderRadius: [4, 4, 0, 0] } },
+      { name: "Projection", type: "bar", stack: "r", barWidth: "60%", data: [...Array(A.length).fill(null), ...F.map(f => Math.round(f.rev))], itemStyle: { color: C.accent, borderRadius: [4, 4, 0, 0] } }],
+  });
+}
+$("#ctrls").oninput = e => { P[e.target.id] = +e.target.value; sync(); render(); };
+$$("#scen button").forEach(b => b.onclick = () => { $$("#scen button").forEach(x => x.classList.toggle("on", x === b)); P = window.__P = { ...SCEN[b.dataset.s] }; sync(); render(); });
+sync(); render();
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

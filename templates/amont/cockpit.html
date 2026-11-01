@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block hero %}
+<section class="hero">
+  <div class="hero-art">{% include "amont/_hero_art.svg" %}</div>
+  <div class="wrap">
+    <div class="eyebrow">Observatoire de l'amont pétrolier · Côte d'Ivoire</div>
+    <h1>L'amont pétrolier ivoirien entre dans <em>l'ère Baleine</em>.</h1>
+    <p class="lead">Production, cadastre, fiscalité et scénarios : une lecture analytique du secteur, de l'annuaire DGH 2025 aux décisions d'investissement de 2026.</p>
+    <div class="hero-cta"><a class="btn primary" href="/carte/">Explorer la carte des blocs →</a><a class="btn ghost-light" href="/simulateur/">Lancer le simulateur CPP</a></div>
+    <div class="hero-stats">
+      <div><b class="num" id="h-bopd"></b><span>barils par jour en 2024</span></div>
+      <div><b class="num" id="h-rev"></b><span>Md FCFA de recettes publiques</span></div>
+      <div><b class="num">150 000</b><span>b/j visés par Baleine phase 3</span></div>
+      <div><b class="num">200 000</b><span>b/j : objectif national 2030</span></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block content %}
+<section>
+  <div class="section-h"><div><div class="kicker">Chiffres clés</div><h2>Le secteur en 2024</h2><p>Source : Annuaire des statistiques des hydrocarbures, DGH, édition 2025.</p></div></div>
+  <div class="grid g-5" id="kpis"></div>
+</section>
+
+<section class="section">
+  <div class="section-h"><div><div class="kicker">La plateforme</div><h2>Explorer les analyses</h2></div></div>
+  <div class="grid g-4" id="features"></div>
+</section>
+
+<section class="section">
+  <div class="section-h"><div><div class="kicker">Production & actualité</div><h2>Une production portée par Baleine</h2></div><a class="btn" href="/production/">Toutes les analyses de production →</a></div>
+  <div class="grid g-3">
+    <div class="card span-2">
+      <div class="card-h"><div><h3 id="prod-t">Production de pétrole brut par gisement</h3><div class="sub" id="prod-s">Millions de barils par an, 2018-2024</div></div>
+        <div class="seg" id="prod-toggle"><button class="on" data-k="petrole">Pétrole</button><button data-k="gaz">Gaz</button></div></div>
+      <div id="c-prod" class="chart tall"></div>
+      <div class="source">Source : DGH / PETROCI, Annuaire 2025 (tableaux 4 et 6).</div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div><h3>Fil d'actualité</h3><div class="sub">Derniers faits marquants</div></div><a class="chip" href="/exploration/">Tout voir</a></div>
+      <ul class="timeline" id="tl"></ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-h"><div><div class="kicker">Analyses</div><h2>Ce que disent les chiffres</h2><p>Huit constats calculés automatiquement à partir des données officielles.</p></div></div>
+  <div class="grid g-4" id="insights"></div>
+</section>
+
+<section class="section">
+  <div class="section-h"><div><div class="kicker">Économie</div><h2>La rente pétrolière et gazière</h2></div><a class="btn" href="/economie/">Économie & fiscalité →</a></div>
+  <div class="grid g-2">
+    <div class="card">
+      <div class="card-h"><div><h3>Revenus de l'État tirés de l'amont</h3><div class="sub">Milliards FCFA inscrits au TOFE</div></div></div>
+      <div id="c-rec" class="chart"></div>
+      <div class="source">Source : MEF, DGE/DCPE (tableaux 50 à 54).</div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div><h3>Qui reçoit les barils exportés ?</h3><div class="sub">Exportations 2024 par champ et par bénéficiaire (M bbl)</div></div></div>
+      <div id="c-exp" class="chart"></div>
+      <div class="source">Source : Comité de suivi des enlèvements de pétrole brut (tableau 17).</div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const K = D.kpis;
+$("#h-bopd").textContent = nf(K.petrole_bopd);
+$("#h-rev").textContent = nf(K.revenus, 1);
+const FEAT = [["carte", "Carte des blocs", "Le cadastre interactif : 50 blocs, gisements, opérateurs, frise animée 1992-2026."], ["production", "Production", "Pétrole et gaz par gisement, analyse de déclin, ventes de gaz."], ["exploration", "Exploration", "CPP, forages, sismique, découvertes et chronologie sourcée."], ["acteurs", "Acteurs", "Opérateurs, surfaces détenues et concentration du domaine."], ["economie", "Économie & fiscalité", "Recettes de l'État, prélèvement par baril, paradoxe du brut."], ["simulateur", "Simulateur CPP", "Part de l'État, VAN, TRI et Brent d'équilibre d'un gisement."], ["perspectives", "Perspectives 2035", "Scénarios de production et de recettes vs objectifs nationaux."], ["donnees", "Données & API", "Registre des blocs, exports CSV, API JSON et GeoJSON."]];
+$("#features").innerHTML = FEAT.map(([s, t, d]) => `<a class="card feature" href="/${s}/"><div class="ico">${document.querySelector(`.tabs a[href="/${s}/"] svg`)?.outerHTML || ""}</div><h3>${t}</h3><p>${d}</p><span class="go">Ouvrir →</span></a>`).join("");
+const kp = [
+  ["Pétrole brut", nf(K.petrole_bopd), "b/j", pct(K.petrole_var) + " vs 2023", K.petrole_var, D.total_petrole, C.amber],
+  ["Gaz naturel", nf(K.gaz_mmscfd), "MMscf/j", pct(K.gaz_var) + " vs 2023", K.gaz_var, D.total_gaz, C.gas],
+  ["Revenus de l'État", nf(K.revenus, 1), "Md FCFA", pct(K.revenus_var) + " vs 2023", K.revenus_var, D.recettes.map(r => r.total), C.accent],
+  ["Blocs attribués", K.blocs_actifs_2026, "/ " + K.blocs_total, `${K.blocs_actifs_2024} fin 2024 · +${K.attribues_depuis_2025} depuis 2025`, 1, null],
+  ["Brent moyen 2024", nf(K.brent, 2), "$/bbl", "-2,25 % vs 2023 (82,62 $)", -1, D.brent_2024, "#9085e9"],
+];
+$("#kpis").innerHTML = kp.map((k, i) => `<div class="card kpi fade-in" style="animation-delay:${i * 60}ms">
+  <div class="lbl">${k[0]}</div><div class="val">${k[1]}<small>${k[2]}</small></div>
+  <div class="delta ${k[4] > 0 ? "up" : k[4] < 0 ? "down" : ""}">${k[3]}</div>${k[5] ? `<div class="spark" id="sp${i}"></div>` : ""}</div>`).join("");
+kp.forEach((k, i) => k[5] && sparkline("sp" + i, k[5], k[6]));
+
+function prodChart(kind) {
+  const isP = kind === "petrole";
+  $("#prod-t").textContent = isP ? "Production de pétrole brut par gisement" : "Production de gaz naturel par gisement";
+  $("#prod-s").textContent = isP ? "Millions de barils par an, 2018-2024" : "Milliards de pieds cubes (Bcf) par an, 2018-2024";
+  const ordre = D.ordre_champs;
+  chart("c-prod", {
+    legend: { data: ordre },
+    tooltip: { valueFormatter: v => nf(v, 2) + (isP ? " M bbl" : " Bcf") },
+    xAxis: { type: "category", data: D.annees },
+    yAxis: { type: "value" },
+    series: ordre.map((n, j) => {
+      const c = D.champs.find(x => x.nom === n);
+      return { name: n, type: "bar", stack: "t", barWidth: "52%", data: c.serie[kind].map(v => v / (isP ? 1e6 : 1e3)),
+        itemStyle: barStyle(c.couleur, j === ordre.length - 1), emphasis: { focus: "series" } };
+    }),
+  });
+}
+prodChart($("#prod-toggle .on").dataset.k);
+$$("#prod-toggle button").forEach(b => b.onclick = () => { $$("#prod-toggle button").forEach(x => x.classList.toggle("on", x === b)); prodChart(b.dataset.k); });
+
+const catC = { contrat: C.s[0], decouverte: C.s[2], production: C.s[1], forage: C.s[4], politique: C.s[6] };
+$("#tl").innerHTML = D.evenements.slice(0, 6).map(e => `<li style="--c:${catC[e.cat]}"><div class="dt">${new Date(e.date).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })} · ${e.cat_label}</div>
+  <div class="tt">${esc(e.titre)}</div><div class="dd">${esc(e.description)}</div></li>`).join("");
+
+$("#insights").innerHTML = D.insights.map((x, i) => `<div class="card insight fade-in" style="animation-delay:${i * 50}ms"><div class="k num">${x.k}</div><div class="t">${esc(x.t)}</div><div class="d">${esc(x.d)}</div></div>`).join("");
+
+const R = D.recettes;
+const rs = [["BIC pétrole", "bic_petrole", C.s[3]], ["Taxes pétrole", "taxe_petrole", C.s[1]], ["BIC gaz", "bic_gaz", C.s[0]], ["Taxes gaz", "taxe_gaz", C.s[2]], ["Bonus de signature", "bonus", C.s[6]]];
+chart("c-rec", {
+  tooltip: { valueFormatter: v => nf(v, 1) + " Md FCFA" },
+  xAxis: { type: "category", data: R.map(r => r.annee) }, yAxis: { type: "value" },
+  series: rs.map(([n, k, c], j) => ({ name: n, type: "bar", stack: "r", barWidth: "52%", data: R.map(r => r[k]), itemStyle: barStyle(c, j === rs.length - 1) })),
+});
+const E = D.exports;
+const eb = [["État", "etat", C.s[2]], ["PETROCI", "petroci", C.s[1]], ["Partenaires privés", "prives", C.s[0]]];
+chart("c-exp", {
+  tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: v => nf(v, 2) + " M bbl" },
+  grid: { left: 8, right: 30 },
+  yAxis: { type: "category", data: E.map(e => e.champ), axisLabel: { color: C.text2, fontSize: 12 } },
+  xAxis: { type: "value" },
+  series: eb.map(([n, k, c], j) => ({ name: n, type: "bar", stack: "e", barWidth: "46%", data: E.map(e => e[k] / 1e6),
+    itemStyle: { color: c, borderColor: C.surface, borderWidth: 1, borderRadius: j === 2 ? [0, 4, 4, 0] : 0 } })),
+});
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

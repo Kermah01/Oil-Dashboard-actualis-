@@ -1,0 +1,74 @@
+<svg viewBox="0 0 1400 420" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#050913"/><stop offset=".55" stop-color="#0b1730"/><stop offset=".78" stop-color="#3a2410"/><stop offset="1" stop-color="#7a3d10"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1f3a"/><stop offset="1" stop-color="#040811"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.72" cy="0.78" r="0.35">
+      <stop offset="0" stop-color="#ffb547" stop-opacity=".75"/><stop offset=".35" stop-color="#f28c28" stop-opacity=".28"/><stop offset="1" stop-color="#f28c28" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="flare" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#fff3c4"/><stop offset=".3" stop-color="#ffb547"/><stop offset=".7" stop-color="#f28c28" stop-opacity=".5"/><stop offset="1" stop-color="#f28c28" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fadeL" x1="0" x2="1">
+      <stop offset="0" stop-color="#050913" stop-opacity=".97"/><stop offset=".45" stop-color="#050913" stop-opacity=".75"/><stop offset=".75" stop-color="#050913" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#3987e5" stroke-opacity=".06"/>
+    </pattern>
+  </defs>
+  <rect width="1400" height="420" fill="url(#sky)"/>
+  <rect width="1400" height="420" fill="url(#sun)"/>
+  <rect width="1400" height="300" fill="url(#grid)"/>
+  <g fill="#fff" opacity=".7">
+    <circle cx="820" cy="40" r="1"/><circle cx="900" cy="80" r="1.3"/><circle cx="1010" cy="30" r="1"/><circle cx="1120" cy="66" r=".8"/>
+    <circle cx="1230" cy="24" r="1.2"/><circle cx="1320" cy="90" r="1"/><circle cx="760" cy="110" r=".8"/><circle cx="1180" cy="130" r=".9"/>
+    <circle cx="960" cy="150" r=".7"/><circle cx="1370" cy="40" r=".8"/><circle cx="1060" cy="105" r=".6"/>
+  </g>
+  <!-- horizon -->
+  <rect y="300" width="1400" height="120" fill="url(#sea)"/>
+  <path d="M0 300 H1400" stroke="#ffb547" stroke-opacity=".35"/>
+  <!-- reflets -->
+  <g stroke="#ffb547" stroke-linecap="round" opacity=".55">
+    <path d="M930 318h90M960 330h50M900 344h130M950 360h70M925 378h110M970 396h40" stroke-width="2"/>
+  </g>
+  <g stroke="#3987e5" stroke-opacity=".25" fill="none">
+    <path d="M0 340 Q 100 334 200 340 T 400 340 T 600 340 T 800 340 T 1000 340 T 1200 340 T 1400 340"/>
+    <path d="M0 370 Q 100 364 200 370 T 400 370 T 600 370 T 800 370 T 1000 370 T 1200 370 T 1400 370"/>
+    <path d="M0 400 Q 100 394 200 400 T 400 400 T 600 400 T 800 400 T 1000 400 T 1200 400 T 1400 400"/>
+  </g>
+  <!-- FPSO -->
+  <g transform="translate(860 238)">
+    <path d="M0 62 L400 62 L384 86 L18 86 Z" fill="#0a0f1a" stroke="#1d2a44"/>
+    <rect x="20" y="44" width="360" height="18" fill="#0d1424"/>
+    <g fill="#0f182b" stroke="#22324f">
+      <rect x="40" y="22" width="44" height="22"/><rect x="92" y="14" width="56" height="30"/><rect x="156" y="26" width="38" height="18"/>
+      <rect x="202" y="10" width="60" height="34"/><rect x="270" y="24" width="40" height="20"/>
+      <rect x="320" y="-6" width="46" height="50"/><rect x="330" y="-20" width="26" height="14"/>
+    </g>
+    <path d="M60 0 L60 -70 M60 -70 L110 22" stroke="#22324f" stroke-width="3"/>
+    <path d="M232 10 L232 -40 L250 -40" stroke="#22324f" stroke-width="3" fill="none"/>
+    <!-- torchère -->
+    <path d="M18 44 L-6 -60" stroke="#2a3b5c" stroke-width="4"/>
+    <circle cx="-8" cy="-70" r="34" fill="url(#flare)"><animate attributeName="r" values="30;38;30" dur="3s" repeatCount="indefinite"/></circle>
+    <path d="M-8 -62 C -18 -78 -4 -86 -10 -100 C 4 -88 6 -76 -2 -62 Z" fill="#ffd27a"><animate attributeName="opacity" values="1;.7;1" dur="1.4s" repeatCount="indefinite"/></path>
+    <g fill="#ffb547">
+      <circle cx="50" cy="32" r="1.6"/><circle cx="104" cy="24" r="1.6"/><circle cx="130" cy="34" r="1.6"/><circle cx="214" cy="20" r="1.6"/>
+      <circle cx="244" cy="30" r="1.6"/><circle cx="336" cy="6" r="1.6"/><circle cx="352" cy="20" r="1.6"/><circle cx="290" cy="34" r="1.6"/>
+    </g>
+    <circle cx="343" cy="-22" r="2.4" fill="#e66767"><animate attributeName="opacity" values="1;.1;1" dur="1.6s" repeatCount="indefinite"/></circle>
+  </g>
+  <!-- plateforme jacket lointaine -->
+  <g transform="translate(700 236)" opacity=".75">
+    <path d="M10 64 L20 0 M60 64 L50 0 M14 40 L56 40 M17 20 L53 20 M14 40 L53 20 M56 40 L17 20" stroke="#1d2a44" stroke-width="2.5" fill="none"/>
+    <rect x="0" y="-16" width="70" height="16" fill="#0f182b" stroke="#22324f"/>
+    <path d="M58 -16 L58 -46" stroke="#22324f" stroke-width="2.5"/>
+    <circle cx="58" cy="-50" r="12" fill="url(#flare)" opacity=".8"/>
+    <circle cx="12" cy="-8" r="1.4" fill="#ffb547"/><circle cx="40" cy="-8" r="1.4" fill="#ffb547"/>
+  </g>
+  <!-- navire de servitude -->
+  <g transform="translate(1290 292)"><path d="M0 8 L56 8 L50 16 L6 16 Z" fill="#0a0f1a"/><rect x="34" y="0" width="14" height="8" fill="#0f182b"/><circle cx="40" cy="4" r="1.2" fill="#ffb547"/></g>
+  <rect width="1400" height="420" fill="url(#fadeL)"/>
+</svg>

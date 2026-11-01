@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="seg" id="situation" title="Situation du cadastre"><button data-v="2024">Fin 2024 (DGH)</button><button class="on" data-v="2026">Nov. 2026</button></div>
+<a class="btn" href="/api/blocs.geojson" download>GeoJSON ↓</a>
+{% endblock %}
+{% block content %}
+<div class="map-shell fade-in">
+  <div id="map"></div>
+
+  <div class="map-panel mp-views">
+    <div class="seg" id="vues"><button class="on" data-v="pays">Côte d'Ivoire</button><button data-v="domaine">Domaine pétrolier</button><button data-v="production">Zone de production</button></div>
+  </div>
+  <button class="btn mp-toggle" onclick="document.querySelector('.mp-controls').classList.toggle('open');document.querySelector('.mp-detail').classList.remove('open')">⚙ Filtres</button>
+  <button class="btn mp-toggle mp-toggle-leg" onclick="document.getElementById('legend').classList.toggle('open')">Légende</button>
+  <div class="map-panel mp-controls">
+    <div>
+      <label class="t">Colorer les blocs par</label>
+      <select id="mode">
+        <option value="statut">Statut</option>
+        <option value="operateur">Opérateur</option>
+        <option value="zone">Zone (profondeur d'eau)</option>
+        <option value="superficie">Superficie (km²)</option>
+        <option value="production">Production de brut 2024</option>
+        <option value="anciennete">Ancienneté du CPP</option>
+      </select>
+    </div>
+    <div>
+      <label class="t">Rechercher</label>
+      <input type="text" id="q" placeholder="CI-101, Eni, Baleine…" autocomplete="off">
+    </div>
+    <div>
+      <label class="t">Filtrer</label>
+      <div style="display:grid;gap:8px">
+        <select id="f-zone"><option value="">Toutes les zones</option></select>
+        <select id="f-op"><option value="">Tous les opérateurs</option></select>
+      </div>
+    </div>
+    <div class="mp-stats" id="stats"></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="ancien" style="accent-color:var(--accent)"> Afficher l'ancien découpage (blocs supprimés)</label>
+    <div><label class="t">Blocs récents sans contour</label><div class="tags" id="unmapped"></div></div>
+    <div class="disclaimer">Contours : base cartographique AMONT·CI, construite à partir de sources publiques. En pointillés : contour plus large que la superficie DGH (ancien périmètre probable).</div>
+  </div>
+
+  <aside class="map-panel mp-detail" id="detail"><button class="x" onclick="closeDetail()">×</button><div id="detail-body"></div></aside>
+
+  <div class="map-panel mp-legend" id="legend"></div>
+
+  <div class="map-panel mp-time">
+    <button class="btn primary" id="play" title="Rejouer l'histoire du domaine">▶</button>
+    <input type="range" id="year" min="1992" max="2026" step="1" value="2026">
+    <div class="yr num" id="yr">2026</div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const map = L.map("map", { zoomControl: false, minZoom: 5, maxZoom: 12, zoomSnap: .25 }).setView([4.75, -5.25], 7.25);
+L.control.zoom({ position: "bottomright" }).addTo(map);
+map.createPane("land"); map.getPane("land").style.zIndex = 250;
+map.createPane("guides"); map.getPane("guides").style.zIndex = 380; map.getPane("guides").style.pointerEvents = "none";
+
+const cartoUrl = () => {
+  const style = C.mode === "dark" ? "dark_all" : "light_all";
+  return window.CARTO_KEY
+    ? `https://basemaps.cartocdn.com/rastertiles/${style}/{z}/{x}/{y}.png?key=${window.CARTO_KEY}`
+    : `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
+};
+const bases = {
+  "Plan (CARTO)": L.tileLayer(cartoUrl(), { attribution: "© OpenStreetMap, © CARTO", subdomains: "abcd", maxZoom: 18 }),
+  "Voyager (CARTO)": L.tileLayer(window.CARTO_KEY ? `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${window.CARTO_KEY}` : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap, © CARTO", subdomains: "abcd" }),
+  "Océan / bathymétrie (Esri)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}", { attribution: "© Esri, GEBCO, NOAA" }),
+  "Satellite (Esri)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "© Esri, Maxar" }),
+  "Hors-ligne": L.layerGroup(),
+};
+bases["Plan (CARTO)"].addTo(map);
+L.control.layers(bases, null, { position: "bottomright" }).addTo(map);
+
+/* --- décor terrestre (fonctionne sans tuiles) --- */
+const T = D.territoire.map(([x, y]) => [y, x]);
+const voisins = [[4.36, -7.53], [5.0, -9.0], [6.3, -11.5], [13, -11.5], [13, 1.5], [6.1, 1.5], [5.5, -0.5], [5.1, -3.1]];
+const landStyle = { pane: "land", stroke: false, fillColor: C.land2, fillOpacity: .95, interactive: false };
+const voisinsL = L.polygon([...voisins, ...T.slice(0, 12).reverse()], landStyle).addTo(map);
+const ciL = L.polygon(T, { ...landStyle, fillColor: C.land, stroke: true, color: C.landLine, weight: 1 }).addTo(map);
+const villes = L.layerGroup([["Abidjan", 5.36, -4.02], ["San-Pédro", 4.75, -6.64], ["Yamoussoukro", 6.82, -5.28], ["Bouaké", 7.69, -5.03], ["Korhogo", 9.46, -5.63], ["Man", 7.41, -7.55]].map(([n, la, lo]) =>
+  L.circleMarker([la, lo], { pane: "guides", radius: 2.5, color: C.muted, fillOpacity: 1, weight: 0 })
+    .bindTooltip(n, { permanent: true, direction: "top", className: "bloc-label", offset: [0, -2] })));
+/* le contour simplifié ne sert que si les tuiles en ligne ne chargent pas (intranet, hors-ligne) */
+const decor = on => { voisinsL.setStyle({ fillOpacity: on ? .95 : 0 }); ciL.setStyle({ fillOpacity: on ? .95 : 0, opacity: on ? 1 : 0 }); on ? villes.addTo(map) : villes.remove(); };
+let tilesOk = false; decor(false);
+Object.values(bases).forEach(l => l.on && l.on("tileload", () => { tilesOk = true; decor(false); }));
+bases["Plan (CARTO)"].on("tileerror", () => { if (!tilesOk) decor(true); });
+setTimeout(() => { if (!tilesOk) decor(true); }, 2500);
+map.on("baselayerchange", e => decor(e.name === "Hors-ligne" || !tilesOk));
+onTheme(() => {
+  bases["Plan (CARTO)"].setUrl(cartoUrl());
+  voisinsL.setStyle({ fillColor: C.land2 }); ciL.setStyle({ fillColor: C.land, color: C.landLine });
+  setOPC(); refresh();
+});
+
+/* --- état --- */
+const S = { mode: "statut", sit: "2026", year: 2026, zone: "", op: "", q: "" };
+const feats = D.blocs.features;
+const mapped = feats.filter(f => f.geometry).sort((a, b) => (b.properties.contour_large ? 1 : 0) - (a.properties.contour_large ? 1 : 0)).reverse();
+const unmapped = feats.filter(f => !f.geometry);
+const P = f => f.properties;
+const cppYear = (p, sit = S.sit) => { const d = sit === "2026" ? p.date_cpp_2026 : p.date_cpp; return d ? +d.slice(0, 4) : null; };
+function statutOf(p) {
+  const y = cppYear(p);
+  let st = S.sit === "2026" ? p.statut_2026 : p.statut_2024;
+  if (st !== "libre" && y && y > S.year) return "libre";
+  if (st === "production") { const prodYear = Math.min(...D.champs.filter(c => c.blocs.includes(p.code) && c.mise_prod).map(c => c.mise_prod), 9999); if (prodYear > S.year) st = "exploration"; }
+  if (S.sit === "2026" && p.statut_2024 === "libre" && st !== "libre") return "nouveau";
+  return st;
+}
+const opOf = p => (S.sit === "2026" ? p.operateur_2026_code : p.operateur_code);
+const opName = p => (S.sit === "2026" ? p.operateur_2026 : p.operateur);
+let OPC = {};
+const setOPC = () => OPC = { ENI: C.s[0], PETROCI: C.s[1], CNR: C.s[2], FOXTROT: C.s[3], MURPHY: C.s[4], PETROBRAS: C.s[6] };
+setOPC();
+const OPN = Object.fromEntries(D.acteurs.map(a => [a.code, a.nom]));
+const ZONEC = { onshore: "#8a6a3b", plateau: "#9cc7ff", plateau_profond: "#5f9fe8", profond: "#3987e5", profond_ultra: "#2457a6", ultra: "#173872" };
+const seq = (v, max) => v == null ? C.libre : C.seq[Math.min(4, Math.floor(4.999 * v / max))];
+const maxSurf = Math.max(...feats.map(f => P(f).superficie || 0));
+const maxProd = Math.max(...feats.map(f => (P(f).production || []).at(-1) || 0));
+
+function colorOf(p) {
+  const st = statutOf(p);
+  switch (S.mode) {
+    case "statut": return STATUT[st].c;
+    case "operateur": return st === "libre" ? C.libre : (OPC[opOf(p)] || "#8a94a6");
+    case "zone": return ZONEC[p.zone];
+    case "superficie": return seq(p.superficie, maxSurf);
+    case "production": { const v = (p.production || []).at(-1); return v ? seq(v, maxProd) : C.surface2 || "#e8edf4"; }
+    case "anciennete": { const y = cppYear(p); return st === "libre" || !y ? C.libre : seq(S.year - y, 34); }
+  }
+}
+function visible(p) {
+  if (S.zone && p.zone !== S.zone) return false;
+  if (S.op && opOf(p) !== S.op) return false;
+  if (S.q) {
+    const q = S.q.toLowerCase();
+    const hay = [p.code, opName(p), ...(p.champs || [])].join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+function style(f) {
+  const p = P(f), vis = visible(p), st = statutOf(p);
+  const large = p.contour_large;
+  return { color: vis ? (large ? colorOf(p) : (C.mode === "dark" ? "rgba(230,236,245,.55)" : "rgba(255,255,255,.9)")) : (C.mode === "dark" ? "rgba(230,236,245,.12)" : "rgba(15,23,42,.08)"), weight: large ? 2 : 1, fillColor: colorOf(p),
+    fillOpacity: vis ? (large ? .18 : st === "libre" && S.mode === "statut" ? .35 : .72) : .08, dashArray: st === "libre" || large ? "4 4" : null };
+}
+
+let selected = null;
+const blocsL = L.geoJSON({ type: "FeatureCollection", features: mapped }, {
+  style,
+  onEachFeature: (f, layer) => {
+    const p = P(f);
+    layer.bindTooltip(() => `<b>${p.code}</b> · ${STATUT[statutOf(p)].l}<br>${esc(opName(p) || "Aucun opérateur")}<br><span style="color:${C.muted}">${nf(p.superficie)} km²${p.superficie_officielle ? "" : " (est.)"}${p.champs.length ? " · " + esc(p.champs.join(", ")) : ""}</span>`, { className: "tip", sticky: true });
+    layer.on({
+      mouseover: e => e.target.setStyle({ weight: 2.5, color: C.text }),
+      mouseout: e => e.target.setStyle(style(f)) || (selected === layer && layer.setStyle({ weight: 3, color: C.amber })),
+      click: () => { selectBloc(f, layer); },
+    });
+  },
+}).addTo(map);
+const labels = L.layerGroup(mapped.map(f => {
+  const c = L.polygon(f.geometry.coordinates[0].map(([x, y]) => [y, x])).getBounds().getCenter();
+  return L.marker(c, { opacity: 0, interactive: false }).bindTooltip(P(f).code, { permanent: true, direction: "center", className: "bloc-label" });
+}));
+function updLabels() {
+  labels.addTo(map);
+  labels.eachLayer(m => {
+    const f = feats.find(x => P(x).code === m.getTooltip().getContent());
+    const b = L.polygon(f.geometry.coordinates[0].map(([x, y]) => [y, x])).getBounds();
+    const w = map.latLngToContainerPoint(b.getNorthEast()).x - map.latLngToContainerPoint(b.getSouthWest()).x;
+    const el = m.getTooltip().getElement(); if (el) el.style.display = w > 44 ? "" : "none";
+  });
+}
+map.on("zoomend", updLabels); updLabels();
+
+/* --- gisements --- */
+const champsL = L.layerGroup().addTo(map);
+function drawChamps() {
+  champsL.clearLayers();
+  D.champs.forEach(c => {
+    const y = c.mise_prod || c.decouverte || 0;
+    if (y > S.year) return;
+    const prod = c.statut === "production" && (c.mise_prod || 0) <= S.year;
+    const html = prod ? `<div class="pulse" style="--c:${c.couleur}"><i></i></div>` : `<div class="diamond" style="--c:${c.couleur}"></div>`;
+    L.marker([c.lat, c.lon], { icon: L.divIcon({ html, className: "", iconSize: [16, 16] }), zIndexOffset: 1000 })
+      .bindTooltip(`<b>${esc(c.nom)}</b><br>${prod ? "En production depuis " + c.mise_prod : "Découverte " + c.decouverte + " · en évaluation"}`, { className: "tip", direction: "top", offset: [0, -8] })
+      .on("click", () => selectChamp(c)).addTo(champsL);
+  });
+}
+
+/* --- panneau détail --- */
+function openDetail(html) { $("#detail-body").innerHTML = html; $("#detail").classList.add("open"); $(".mp-controls").classList.remove("open"); }
+function closeDetail() { $("#detail").classList.remove("open"); if (selected) { selected.setStyle(style(selected.feature)); selected = null; } }
+const evList = evs => evs.length ? `<div class="group-t">Chronologie</div><ul class="timeline">${evs.map(e => `<li style="--c:${C.s[0]}"><div class="dt">${new Date(e.date).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}</div><div class="tt">${esc(e.titre)}</div></li>`).join("")}</ul>` : "";
+
+function selectBloc(f, layer) {
+  if (selected) selected.setStyle(style(selected.feature));
+  selected = layer; if (layer) { layer.setStyle({ weight: 3, color: C.amber }); if (!f.properties.contour_large) layer.bringToFront();
+    const pd = innerWidth > 900 ? { paddingTopLeft: [340, 20], paddingBottomRight: [400, 80] } : { paddingTopLeft: [10, 60], paddingBottomRight: [10, innerHeight * .5] };
+    map.flyToBounds(layer.getBounds(), { ...pd, maxZoom: 9, duration: .7 }); $$("#vues button").forEach(b => b.classList.remove("on")); }
+  const p = P(f), st = statutOf(p), y = cppYear(p);
+  const prod = p.production && p.production.some(v => v > 0);
+  const changed = p.operateur_2026 && p.operateur !== p.operateur_2026;
+  openDetail(`
+    <div class="eyebrow">${esc(p.zone_label)}</div>
+    <h2>${p.code}</h2>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><span class="badge ${st}"><i></i>${STATUT[st].l}</span>${p.geometrie_officielle ? "" : '<span class="badge">Sans contour</span>'}</div>
+    <dl class="kv">
+      <dt>Opérateur</dt><dd>${esc(opName(p) || "—")}</dd>
+      ${changed ? `<dt>Fin 2024</dt><dd>${esc(p.operateur || "Libre")}</dd>` : ""}
+      <dt>Profondeur d'eau</dt><dd>${esc(p.profondeur || p.zone_label)}</dd>
+      <dt>Superficie</dt><dd class="num">${p.superficie ? nf(p.superficie, 2) + " km² <span style='color:" + C.muted + "'>(" + esc(p.superficie_source) + ")</span>" : "n.d."}</dd>
+      <dt>Signature du CPP</dt><dd class="num">${y ? new Date(S.sit === "2026" ? p.date_cpp_2026 : p.date_cpp).toLocaleDateString("fr-FR") : "—"}</dd>
+      ${y ? `<dt>Ancienneté</dt><dd class="num">${2026 - y} ans</dd>` : ""}
+      <dt>Gisements</dt><dd>${esc(p.champs.join(", ") || "—")}</dd>
+      <dt>Forages 2016-2024</dt><dd class="num">${p.forages_2016_2024}</dd>
+    </dl>
+    ${p.note_2026 ? `<div class="note" style="margin-bottom:12px">${esc(p.note_2026)}</div>` : ""}
+    ${p.geometrie_note ? `<div class="note" style="margin-bottom:12px">⚠️ ${esc(p.geometrie_note)}</div>` : ""}
+    ${p.historique && p.historique.length ? `<div class="group-t">Historique des CPP</div><div class="disclaimer" style="margin:-4px 0 8px">Source : base AMONT·CI ; contrat en cours : DGH.</div><ul class="timeline">${p.historique.map(h => `<li style="--c:${C.s[6]}"><div class="dt">${h.date ? new Date(h.date).toLocaleDateString("fr-FR", { month: "short", year: "numeric" }) : "—"}</div><div class="tt">${esc(h.operateur)}</div>${h.partenaires ? `<div class="dd">Partenaires : ${esc(h.partenaires)}</div>` : ""}</li>`).join("")}</ul>` : ""}
+    ${prod ? `<div class="group-t">Production de brut attribuée au bloc</div><div class="chart xs" id="d-spark"></div><div class="source">${nf((p.production.at(-1)) / 366, 0)} b/j en 2024${p.champs.includes("Baleine") ? " · Baleine réparti à parts égales entre CI-101 et CI-802" : ""}</div>` : ""}
+    ${p.puits.length ? `<div class="group-t">Puits récents</div><div class="tags">${p.puits.map(w => `<span>${esc(w.nom)} · ${w.annee} · ${esc(w.resultat)}</span>`).join("")}</div>` : ""}
+    ${evList(p.evenements)}`);
+  if (prod) sparkline("d-spark", p.production, C.amber);
+}
+function selectChamp(c) {
+  const s = c.serie;
+  openDetail(`
+    <div class="eyebrow">Gisement · ${esc(c.blocs.join(" & "))}</div><h2>${esc(c.nom)}</h2>
+    <div style="margin-top:8px"><span class="badge ${c.statut}"><i></i>${STATUT[c.statut].l}</span></div>
+    <dl class="kv"><dt>Opérateur</dt><dd>${esc(c.operateur)}</dd><dt>Fluide</dt><dd>${esc(c.fluide)}</dd>
+      ${c.decouverte ? `<dt>Découverte</dt><dd>${c.decouverte}</dd>` : ""}${c.mise_prod ? `<dt>Mise en production</dt><dd>${c.mise_prod}</dd>` : ""}
+      ${s ? `<dt>Pétrole 2024</dt><dd class="num">${nf(s.petrole.at(-1) / 366)} b/j</dd><dt>Gaz 2024</dt><dd class="num">${nf(s.gaz.at(-1) / 366, 1)} MMscf/j</dd>` : ""}</dl>
+    <p style="color:${C.text2};font-size:13px">${esc(c.description)}</p>
+    ${s ? `<div class="group-t">Pétrole brut 2018-2024</div><div class="chart xs" id="d-spark"></div>` : ""}`);
+  if (s) sparkline("d-spark", s.petrole, c.couleur);
+  map.flyTo([c.lat, c.lon], Math.max(map.getZoom(), 8), { duration: .8 });
+}
+
+/* --- légende & stats --- */
+function legend() {
+  let items;
+  switch (S.mode) {
+    case "statut": items = (S.sit === "2026" ? ["production", "exploration", "nouveau", "libre"] : ["production", "exploration", "libre"]).map(k => [STATUT[k].c, STATUT[k].l]); break;
+    case "operateur": items = [...Object.entries(OPC).map(([k, c]) => [c, OPN[k]]), ["#8a94a6", "Autres opérateurs"], [C.libre, "Libre"]]; break;
+    case "zone": items = Object.entries(ZONEC).map(([k, c]) => [c, { onshore: "Onshore", plateau: "Peu profond", plateau_profond: "Peu profond à profond", profond: "Profond", profond_ultra: "Profond à ultra-profond", ultra: "Ultra-profond" }[k]]); break;
+    case "superficie": items = C.seq.map((c, i) => [c, `${nf(i * maxSurf / 5)}–${nf((i + 1) * maxSurf / 5)} km²`]); break;
+    case "production": items = [...C.seq.map((c, i) => [c, `${nf(i * maxProd / 5 / 366)}–${nf((i + 1) * maxProd / 5 / 366)} b/j`]), [C.surface2 || "#e8edf4", "Pas de production"]]; break;
+    case "anciennete": items = [...C.seq.map((c, i) => [c, `${Math.round(i * 34 / 5)}–${Math.round((i + 1) * 34 / 5)} ans`]), [C.libre, "Libre"]]; break;
+  }
+  $("#legend").innerHTML = `<label class="t" style="font-size:11px;color:${C.muted};text-transform:uppercase;letter-spacing:.08em;font-weight:600">${$("#mode").selectedOptions[0].text}</label>` + legendHTML(items).replace('class="legend"', 'class="legend" style="flex-direction:column;align-items:flex-start;margin-top:6px"') +
+    `<div class="legend" style="margin-top:8px;border-top:1px solid ${C.line};padding-top:8px"><span><span class="pulse" style="--c:${C.amber};transform:scale(.7)"><i></i></span>Champ en production</span><span><span class="diamond" style="--c:#9085e9;transform:rotate(45deg) scale(.7)"></span>Découverte</span></div>`;
+}
+function stats() {
+  const vis = feats.filter(f => visible(P(f)));
+  const n = k => vis.filter(f => { const s = statutOf(P(f)); return k === "attrib" ? s !== "libre" : s === k; }).length;
+  const surf = vis.filter(f => statutOf(P(f)) !== "libre").reduce((a, f) => a + (P(f).superficie_officielle ? P(f).superficie : 0), 0);
+  $("#stats").innerHTML = `<div><b class="num">${n("production")}</b><span>production</span></div><div><b class="num">${n("attrib") - n("production")}</b><span>exploration</span></div><div><b class="num">${big(surf, 1)}</b><span>km² (officiels)</span></div>`;
+}
+function refresh() { blocsL.setStyle(style); if (selected) selected.setStyle({ weight: 3, color: C.amber }); drawChamps(); legend(); stats(); }
+
+/* --- contrôles --- */
+const zl = { onshore: "Onshore", plateau: "Peu profond", plateau_profond: "Peu profond à profond", profond: "Profond", profond_ultra: "Profond à ultra-profond", ultra: "Ultra-profond" };
+$("#f-zone").innerHTML += Object.entries(zl).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+$("#f-op").innerHTML += D.acteurs.filter(a => a.blocs_2026.length).map(a => `<option value="${a.code}">${esc(a.nom)} (${a.blocs_2026.length})</option>`).join("");
+$("#mode").onchange = e => { S.mode = e.target.value; refresh(); };
+$("#f-zone").onchange = e => { S.zone = e.target.value; refresh(); };
+$("#f-op").onchange = e => { S.op = e.target.value; refresh(); };
+$("#q").oninput = e => {
+  S.q = e.target.value.trim(); refresh();
+  const hits = feats.filter(f => S.q && visible(P(f)));
+  if (hits.length && hits.length <= 6) map.flyToBounds(L.geoJSON({ type: "FeatureCollection", features: hits }).getBounds(), { maxZoom: 9, duration: .6 });
+};
+$$("#situation button").forEach(b => b.onclick = () => {
+  $$("#situation button").forEach(x => x.classList.toggle("on", x === b)); S.sit = b.dataset.v;
+  $("#year").max = S.sit === "2026" ? 2026 : 2024; S.year = Math.min(S.year, +$("#year").max); $("#year").value = S.year; $("#yr").textContent = S.year; refresh();
+});
+$("#year").oninput = e => { S.year = +e.target.value; $("#yr").textContent = S.year; refresh(); };
+let timer = null;
+$("#play").onclick = () => {
+  if (timer) { clearInterval(timer); timer = null; $("#play").textContent = "▶"; return; }
+  $("#play").textContent = "❚❚"; S.year = 1992;
+  timer = setInterval(() => {
+    $("#year").value = S.year; $("#yr").textContent = S.year; refresh();
+    if (S.year >= +$("#year").max) { clearInterval(timer); timer = null; $("#play").textContent = "▶"; }
+    S.year++;
+  }, 380);
+};
+const ancienL = L.geoJSON(D.cadastre_ancien, { style: { color: "#8a94a6", weight: 1, dashArray: "2 4", fillOpacity: 0 },
+  onEachFeature: (f, l) => l.bindTooltip(`${f.properties.code} · ancien bloc (hors cadastre 2024)`, { className: "tip", sticky: true }) });
+$("#ancien").onchange = e => e.target.checked ? ancienL.addTo(map) : ancienL.remove();
+$("#unmapped").innerHTML = unmapped.map(f => `<a href="#" data-c="${f.properties.code}"><span>${f.properties.code}</span></a>`).join("");
+$$("#unmapped a").forEach(a => a.onclick = e => { e.preventDefault(); const f = unmapped.find(x => x.properties.code === a.dataset.c); selectBloc(f, null); });
+const deep = new URLSearchParams(location.search).get("bloc");
+refresh();
+const VUES = {
+  pays: L.latLngBounds([3.45, -8.65], [10.75, -2.45]),
+  domaine: blocsL.getBounds(),
+  production: L.latLngBounds([4.40, -5.25], [5.50, -3.05]),
+};
+const pad = () => innerWidth > 900 ? { paddingTopLeft: [340, 12], paddingBottomRight: [20, 80] } : { paddingTopLeft: [8, 60], paddingBottomRight: [8, 70] };
+const vue = k => { map.flyToBounds(VUES[k], { ...pad(), duration: .8 }); $$("#vues button").forEach(b => b.classList.toggle("on", b.dataset.v === k)); };
+map.fitBounds(VUES.pays, pad());
+$$("#vues button").forEach(b => b.onclick = () => vue(b.dataset.v));
+updLabels();
+if (deep) { const f = feats.find(x => P(x).code === deep); if (f && !f.geometry) selectBloc(f, null); else blocsL.eachLayer(l => l.feature === f && selectBloc(f, l)); }
+</script>
+{% endblock %}

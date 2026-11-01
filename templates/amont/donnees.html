@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block actions %}<a class="btn" href="/admin/">Back-office de saisie</a><a class="btn primary" href="/api/bundle.json">API JSON</a>{% endblock %}
+{% block content %}
+<section class="grid g-5" id="dl"></section>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-h"><div><h3>Registre des 50 blocs</h3><div class="sub">Cliquer un en-tête pour trier · cliquer un code pour l'ouvrir sur la carte</div></div>
+    <input type="text" id="q" placeholder="Filtrer…" style="width:220px"></div>
+  <div class="table-wrap" style="max-height:520px"><table id="tbl"></table></div>
+</div>
+
+<section class="grid g-2" style="margin-top:16px">
+  <div class="card">
+    <h3 style="margin-bottom:10px">Méthodologie</h3>
+    <div style="color:var(--text-secondary);font-size:13.5px;display:grid;gap:10px">
+      <p style="margin:0"><b style="color:var(--text-primary)">Données officielles.</b> Production, ventes de gaz, pouvoir calorifique, forages, exportations, recettes et Brent proviennent de l'<i>Annuaire des statistiques des hydrocarbures de Côte d'Ivoire, édition 2025</i> (DGH, exercice 2024).</p>
+      <p style="margin:0"><b style="color:var(--text-primary)">Faits 2025-2026.</b> Découvertes (Calao South, Bubale), FID de Baleine phase 3, CPP Petrobras et contrats de développement sont tirés de communiqués et de la presse spécialisée ; la source figure sur chaque événement.</p>
+      <p style="margin:0"><b style="color:var(--text-primary)">Géométrie des blocs.</b> Contours issus de la base cartographique AMONT·CI, construite par l'auteur à partir de sources publiques. 38 contours sur 45 reproduisent la superficie de référence à ±4 % (2 blocs libres, CI-500 et CI-503, n'en ont pas). CI-11, CI-24, CI-26, CI-27 et CI-40 ont un contour plus large que leur superficie DGH (ancien périmètre probable) : ils sont tracés en pointillés. CI-102, CI-103, CI-523, CI-525 et CI-804 (attribués après la constitution de la base) n'ont pas encore de contour : ajoutez-les puis lancez <code>python data/build_data.py</code> et <code>python manage.py load_amont</code>.</p>
+      <p style="margin:0"><b style="color:var(--text-primary)">Superficies et historique.</b> Superficies DGH 2025 pour les blocs attribués ; pour les blocs libres, superficies de la base AMONT·CI, qui fournit aussi la profondeur d'eau et l'historique des opérateurs et partenaires (trié par date ; le contrat en cours suit la DGH).</p>
+      <p style="margin:0"><b style="color:var(--text-primary)">Indicateurs dérivés.</b> Recettes par baril, taux de prélèvement apparent, HHI, déclin ajusté (régression log-linéaire 2019-2024) : calculs de la plateforme à partir des données officielles, avec un taux de change moyen annuel FCFA/USD.</p>
+      <p style="margin:0"><b style="color:var(--text-primary)">Production de Baleine par bloc.</b> L'annuaire publie Baleine pour CI-101 et CI-802 ensemble ; la carte la répartit à parts égales.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin-bottom:10px">API ouverte</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Point d'accès</th><th>Contenu</th></tr></thead>
+      <tbody>
+        <tr><td><code>/api/bundle.json</code></td><td>Toutes les données de la plateforme</td></tr>
+        <tr><td><code>/api/blocs.geojson</code></td><td>Cadastre (FeatureCollection, QGIS-ready)</td></tr>
+        <tr><td><code>/api/recettes.json</code></td><td>Recettes et indicateurs dérivés</td></tr>
+        <tr><td><code>/api/champs.json</code></td><td>Gisements et séries de production</td></tr>
+        <tr><td><code>/api/acteurs.json</code></td><td>Opérateurs, surfaces, production</td></tr>
+        <tr><td><code>/api/evenements.json</code></td><td>Chronologie sourcée</td></tr>
+        <tr><td><code>/export/&lt;table&gt;.csv</code></td><td>production · recettes · blocs · evenements · exports</td></tr>
+      </tbody></table></div>
+    <div class="source" style="margin-top:12px">Le back-office <code>/admin/</code> permet à l'administrateur de la plateforme de mettre à jour les séries chaque année sans toucher au code ; le cache se vide à chaque enregistrement.</div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+$("#dl").innerHTML = [["production", "Production", "35 lignes · 2018-2024"], ["blocs", "Blocs", "50 blocs · statuts 2024/2026"], ["recettes", "Recettes", "TOFE 2018-2024"], ["exports", "Exportations", "Bénéficiaires 2024"], ["evenements", "Chronologie", D.evenements.length + " événements"]]
+  .map(([k, l, d]) => `<a class="card kpi" href="/export/${k}.csv"><div class="lbl">CSV</div><div class="val" style="font-size:20px">${l} ↓</div><div class="delta">${d}</div></a>`).join("");
+const cols = [["code", "Bloc"], ["zone_label", "Zone"], ["s", "Statut 2026"], ["operateur_2026", "Opérateur"], ["date_cpp_2026", "CPP"], ["superficie", "Superficie km²"], ["champs", "Gisements"], ["forages_2016_2024", "Forages 16-24"]];
+const rows = D.blocs.features.map(f => ({ ...f.properties, s: f.properties.statut_2024 === "libre" && f.properties.statut_2026 !== "libre" ? "nouveau" : f.properties.statut_2026 }));
+let sortK = "code", dir = 1;
+const key = r => sortK === "code" ? +r.code.split("-")[1] : sortK === "champs" ? r.champs.join() : r[sortK] ?? "";
+function draw() {
+  const q = $("#q").value.toLowerCase();
+  const rs = rows.filter(r => !q || JSON.stringify(r).toLowerCase().includes(q)).sort((a, b) => (key(a) > key(b) ? 1 : key(a) < key(b) ? -1 : 0) * dir);
+  $("#tbl").innerHTML = `<thead><tr>${cols.map(([k, l]) => `<th data-k="${k}" style="cursor:pointer" class="${k === "superficie" || k.startsWith("forages") ? "r" : ""}">${l}${sortK === k ? (dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead><tbody>` +
+    rs.map(r => `<tr><td><a class="chip" href="/carte/?bloc=${r.code}">${r.code}</a></td><td>${esc(r.zone_label)}</td><td><span class="badge ${r.s}"><i></i>${STATUT[r.s].l}</span></td>
+      <td>${esc(r.operateur_2026 || "—")}</td><td class="num">${r.date_cpp_2026 ? new Date(r.date_cpp_2026).toLocaleDateString("fr-FR") : "—"}</td>
+      <td class="r">${nf(r.superficie, r.superficie_officielle ? 2 : 0)}${r.superficie_officielle ? "" : "*"}</td><td>${esc(r.champs.join(", ") || "—")}</td><td class="r">${r.forages_2016_2024 || "—"}</td></tr>`).join("") + "</tbody>";
+  $$("#tbl th").forEach(th => th.onclick = () => { dir = sortK === th.dataset.k ? -dir : 1; sortK = th.dataset.k; draw(); });
+}
+$("#q").oninput = draw; draw();
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

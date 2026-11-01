@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block actions %}<a class="btn" href="/export/recettes.csv">Recettes CSV ↓</a>{% endblock %}
+{% block content %}
+<section class="grid g-5" id="kpis"></section>
+
+<section class="grid g-2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Recettes pétrolières vs gazières</h3><div class="sub">BIC + taxes d'exploitation, milliards FCFA</div></div></div>
+    <div id="c-pg" class="chart"></div>
+    <div class="source">Source : MEF, DGE/DCPE (tableau 54). 2020 : données corrigées.</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Ce que l'État capte par baril produit</h3><div class="sub">Recettes pétrolières / production de brut, comparées au Brent ($/bbl)</div></div></div>
+    <div id="c-bbl" class="chart"></div>
+    <div class="source">Indicateur dérivé : (BIC pétrole + taxes pétrole) / barils produits, au taux de change moyen annuel.</div>
+  </div>
+</section>
+
+<section class="grid g-3" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Taux de prélèvement apparent</h3><div class="sub">Recettes pétrolières / valeur brute du brut produit au prix du Brent</div></div></div>
+    <div id="c-take" class="chart short"></div>
+    <div class="source">Mesure ex post ; ne tient pas compte des coûts récupérés (cost oil) ni du décalage entre production et encaissement.</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Le paradoxe du brut</h3><div class="sub">Millions de barils, 2024</div></div></div>
+    <div id="c-para" class="chart short"></div>
+    <div class="source">La SIR traite du brut nigérian ; le brut ivoirien d'Espoir, Baobab et Baleine est exporté (tableaux 14 et 17).</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Élasticité recettes / Brent</h3><div class="sub">Recettes pétrolières (Md FCFA) selon le Brent ($/bbl)</div></div></div>
+    <div id="c-sc" class="chart short"></div>
+    <div class="source">Le volume (Baleine) pèse plus que le prix : 2024 sort de la relation historique.</div>
+  </div>
+</section>
+
+<section class="grid g-2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Brent en 2024</h3><div class="sub">Moyenne mensuelle, $/bbl</div></div></div>
+    <div id="c-brm" class="chart short"></div>
+    <div class="source">Source : Platt's, via DGH / PETROCI (tableau 10).</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Marge brute de raffinage de la SIR</h3><div class="sub">$/bbl, 2008-2024</div></div></div>
+    <div id="c-mar" class="chart short"></div>
+    <div class="source">Source : SIR (tableau 13).</div>
+  </div>
+</section>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-h"><div><h3>Récapitulatif des revenus pétroliers et gaziers</h3><div class="sub">Milliards FCFA · indicateurs dérivés en italique</div></div></div>
+  <div class="table-wrap"><table id="tbl"></table></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const R = D.recettes, r24 = R.at(-1), Y = R.map(r => r.annee);
+const exT = D.exports.reduce((s, e) => s + e.total, 0), exP = D.exports.reduce((s, e) => s + e.etat + e.petroci, 0);
+const kp = [["Revenus 2024", nf(r24.total, 1), "Md FCFA", "dont 3,6 de bonus de signature"],
+  ["Par baril produit", nf(r24.usd_par_baril, 1), "$/bbl", nf(r24.fcfa_par_baril) + " FCFA/bbl"],
+  ["Prélèvement apparent", nf(r24.taux_prelevement, 1), "%", "de la valeur brute du brut"],
+  ["Gaz : recettes unitaires", nf(r24.usd_par_mmbtu, 2), "$/MMBTU", "recettes gaz / ventes"],
+  ["Poids budgétaire", nf(D.indicateurs.part_recettes_brut_gaz, 1), "%", "des recettes totales de l'État"]];
+$("#kpis").innerHTML = kp.map(k => `<div class="card kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}<small>${k[2]}</small></div><div class="delta">${k[3]}</div></div>`).join("");
+
+chart("c-pg", {
+  tooltip: { valueFormatter: v => nf(v, 1) + " Md FCFA" },
+  xAxis: { type: "category", data: Y }, yAxis: { type: "value" },
+  series: [["Pétrole", "rec_petrole", C.s[3]], ["Gaz", "rec_gaz", C.s[0]], ["Bonus", "bonus", C.s[6]]].map(([n, k, c], j) => ({ name: n, type: "bar", stack: "x", barWidth: "52%", data: R.map(r => r[k]), itemStyle: barStyle(c, j === 2) })),
+});
+chart("c-bbl", {
+  tooltip: { valueFormatter: v => nf(v, 2) + " $/bbl" },
+  xAxis: { type: "category", data: Y, boundaryGap: false }, yAxis: { type: "value" }, grid: { right: 70 },
+  series: [
+    { name: "Brent", type: "line", data: R.map(r => r.brent), symbol: "none", lineStyle: { width: 2, color: "#8a94a6", type: "dashed" }, itemStyle: { color: "#8a94a6" }, endLabel: { show: true, formatter: "Brent", color: C.muted } },
+    { name: "Recettes publiques / baril", type: "line", data: R.map(r => r.usd_par_baril), symbolSize: 8, lineStyle: { width: 2, color: C.amber }, itemStyle: { color: C.amber, borderColor: C.surface, borderWidth: 2 },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "#ffb54740" }, { offset: 1, color: "#ffb54700" }]) }, endLabel: { show: true, formatter: p => nf(p.value, 1) + " $", color: C.text2 } },
+  ],
+});
+chart("c-take", {
+  legend: false, tooltip: { valueFormatter: v => nf(v, 1) + " %" },
+  xAxis: { type: "category", data: Y }, yAxis: { type: "value", axisLabel: { formatter: "{value} %" } },
+  series: [{ type: "bar", barWidth: "52%", data: R.map(r => r.taux_prelevement), itemStyle: { color: C.accent, borderRadius: [4, 4, 0, 0] },
+    label: { show: true, position: "top", color: C.text2, fontSize: 11, formatter: p => nf(p.value, 0) + "%" } }],
+});
+const imp = D.imports.reduce((s, r) => s + r[3], 0);
+const ng = D.imports.filter(r => r[0] === "Nigeria").reduce((s, r) => s + r[3], 0);
+chart("c-para", {
+  tooltip: { axisPointer: { type: "shadow" }, valueFormatter: v => nf(v, 2) + " M bbl" },
+  grid: { left: 8, right: 20 }, legend: { data: ["Nigeria", "Colombie", "Baleine", "Baobab", "Espoir"] },
+  yAxis: { type: "category", data: ["Exporté", "Importé"], axisLabel: { color: C.text2 } }, xAxis: { type: "value" },
+  series: [["Nigeria", [null, ng], "#5b6b88"], ["Colombie", [null, imp - ng], "#8a94a6"],
+    ...D.exports.map(e => [e.champ, [e.total, null], (D.champs.find(c => c.nom === e.champ) || {}).couleur])].map(([n, d, c]) => ({
+      name: n, type: "bar", stack: "s", barWidth: 26, data: d.map(v => v && v / 1e6), itemStyle: { color: c, borderColor: C.surface, borderWidth: 2 } })),
+});
+chart("c-sc", {
+  legend: false, tooltip: { trigger: "item", formatter: p => `${p.data[2]} : Brent ${nf(p.data[0], 1)} $ · ${nf(p.data[1], 1)} Md FCFA` },
+  xAxis: { type: "value", min: 30, max: 110, interval: 20, name: "Brent $/bbl", nameLocation: "middle", nameGap: 24 }, yAxis: { type: "value" },
+  grid: { bottom: 26 },
+  series: [{ type: "scatter", symbolSize: 12, data: R.map(r => [r.brent, r.rec_petrole, r.annee]),
+    itemStyle: { color: p => p.data[2] === 2024 ? C.amber : C.s[0], borderColor: C.surface, borderWidth: 2 },
+    label: { show: true, formatter: p => p.data[2], position: "right", color: C.text2, fontSize: 10 } }],
+});
+chart("c-brm", {
+  legend: false, tooltip: { valueFormatter: v => nf(v, 2) + " $/bbl" },
+  xAxis: { type: "category", data: MOIS, boundaryGap: false }, yAxis: { type: "value", min: 65 },
+  series: [{ type: "line", data: D.brent_2024, smooth: true, symbolSize: 7, lineStyle: { width: 2, color: "#9085e9" }, itemStyle: { color: "#9085e9", borderColor: C.surface, borderWidth: 2 },
+    markLine: { symbol: "none", lineStyle: { color: C.muted, type: "dashed" }, label: { color: C.muted, formatter: "moyenne 80,76 $", position: "insideEndTop" }, data: [{ yAxis: 80.757 }] } }],
+});
+const MY = Object.keys(D.marge_sir);
+chart("c-mar", {
+  legend: false, tooltip: { valueFormatter: v => nf(v, 2) + " $/bbl" },
+  xAxis: { type: "category", data: MY }, yAxis: { type: "value" },
+  series: [{ type: "bar", barWidth: "60%", data: MY.map(y => ({ value: D.marge_sir[y], itemStyle: { color: D.marge_sir[y] < 0 ? C.s[7] : C.s[2], borderRadius: D.marge_sir[y] < 0 ? [0, 0, 4, 4] : [4, 4, 0, 0] } })) }],
+});
+const rows = [["BIC pétrole", "bic_petrole"], ["BIC gaz", "bic_gaz"], ["Taxes d'exploitation pétrole", "taxe_petrole"], ["Taxes d'exploitation gaz", "taxe_gaz"],
+  ["Recettes pétrole", "rec_petrole", 1], ["Recettes gaz", "rec_gaz", 1], ["Bonus de signature", "bonus"], ["REVENUS TOTAUX", "total", 1],
+  ["Recettes / baril produit ($)", "usd_par_baril", 2], ["Prélèvement apparent (%)", "taux_prelevement", 2], ["Recettes gaz ($/MMBTU)", "usd_par_mmbtu", 2], ["Brent ($/bbl)", "brent", 2]];
+$("#tbl").innerHTML = `<thead><tr><th>Poste</th>${Y.map(y => `<th class="r">${y}</th>`).join("")}</tr></thead><tbody>` +
+  rows.map(([l, k, s]) => `<tr><td>${s === 1 ? `<b>${l}</b>` : s === 2 ? `<i>${l}</i>` : l}</td>${R.map(r => `<td class="r">${s === 1 ? "<b>" : ""}${nf(r[k], s === 2 ? 2 : 1)}${s === 1 ? "</b>" : ""}</td>`).join("")}</tr>`).join("") + "</tbody>";
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

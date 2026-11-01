@@ -1,0 +1,107 @@
+{% load static %}<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if slug == "cockpit" %}AMONT·CI — Observatoire de l'amont pétrolier ivoirien{% else %}{{ titre }} · AMONT·CI{% endif %}</title>
+  <meta name="description" content="Plateforme d'analyse du secteur pétrolier et gazier amont de Côte d'Ivoire">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("amont-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (e) {}</script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3C16 3 6 15 6 21a10 10 0 0 0 20 0C26 15 16 3 16 3z' fill='%23e8750f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+</head>
+<body class="page-{{ slug }}">
+<header class="site-header">
+  <div class="wrap hdr">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <defs><linearGradient id="bm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb766"/><stop offset="1" stop-color="#e8750f"/></linearGradient></defs>
+        <rect width="40" height="40" rx="11" fill="#0f1b30"/>
+        <path d="M20 7c0 0-9 10.5-9 16a9 9 0 0 0 18 0c0-5.5-9-16-9-16z" fill="url(#bm)"/>
+        <path d="M14 25c2 2 4 3 6 3s4-1 6-3" stroke="#0f1b30" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div><div class="brand-name">AMONT<span>·</span>CI</div><div class="brand-sub">Observatoire pétrolier</div></div>
+    </a>
+    <nav class="tabs" id="tabs" aria-label="Navigation principale">
+      <div class="sheet-h">Toutes les pages</div>
+      {% for s, t, st, court in pages %}
+        <a href="{% if s == 'cockpit' %}/{% else %}/{{ s }}/{% endif %}" class="{% if s == slug %}active{% endif %}">{% include "amont/_icon.html" with name=s %}{{ court }}</a>
+      {% endfor %}
+    </nav>
+    <div class="hdr-actions">
+      <button class="icon-btn" id="theme-btn" title="Changer de thème" aria-label="Changer de thème">
+        <svg class="theme-light-only" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="theme-dark-only" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+      </button>
+      
+    </div>
+  </div>
+</header>
+
+<main>
+{% block hero %}
+  <section class="page-hero">
+    <div class="wrap">
+      <div>
+        <div class="crumbs"><a href="/">Accueil</a><span>›</span><span>{{ titre }}</span></div>
+        <h1>{{ titre }}</h1>
+        <p>{{ sous_titre }}</p>
+      </div>
+      <div class="top-actions">{% block actions %}{% endblock %}</div>
+    </div>
+  </section>
+{% endblock %}
+  <div class="wrap page-body">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <div>
+      <a class="brand" href="/"><div><div class="brand-name">AMONT<span style="color:var(--accent)">·</span>CI</div><div class="brand-sub">Observatoire pétrolier</div></div></a>
+      <p>Plateforme d'analyse du secteur pétrolier et gazier amont de Côte d'Ivoire : production, cadastre, fiscalité et prospective.</p>
+    </div>
+    <div>
+      <h4>Analyses</h4>
+      <ul>{% for s, t, st, court in pages %}{% if s != "cockpit" and s != "donnees" %}<li><a href="/{{ s }}/">{{ t }}</a></li>{% endif %}{% endfor %}</ul>
+    </div>
+    <div>
+      <h4>Données</h4>
+      <ul><li><a href="/donnees/">Registre & méthodologie</a></li><li><a href="/api/">API ouverte</a></li><li><a href="/api/blocs.geojson">Cadastre GeoJSON</a></li><li><a href="/export/production.csv">Production (CSV)</a></li><li><a href="/export/recettes.csv">Recettes (CSV)</a></li></ul>
+    </div>
+    <div>
+      <h4>Sources</h4>
+      <ul><li>DGH — Annuaire des statistiques des hydrocarbures, éd. 2025</li><li>MEF, DGE/DCPE — TOFE</li><li>Base cartographique des blocs (AMONT·CI)</li><li>Communiqués officiels 2025-2026</li></ul>
+    </div>
+  </div>
+  <div class="wrap foot-bottom">
+    <span><span class="flag"><i></i><i></i><i></i></span>Côte d'Ivoire · Données à fin 2024, actualité à novembre 2026</span>
+    <span>AMONT·CI — plateforme indépendante d'analyse</span>
+  </div>
+</footer>
+<nav class="bottom-nav" aria-label="Navigation mobile">
+  {% for s, t, st, court in pages %}{% if s in "cockpit carte production economie" %}
+  <a href="{% if s == 'cockpit' %}/{% else %}/{{ s }}/{% endif %}" class="{% if s == slug %}active{% endif %}">{% include "amont/_icon.html" with name=s %}<span>{{ court }}</span></a>
+  {% endif %}{% endfor %}
+  <button id="more-btn" class="{% if slug not in 'cockpit carte production economie' %}active{% endif %}" aria-label="Plus de pages"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Plus</span></button>
+</nav>
+<div class="sheet-backdrop" id="sheet-bd"></div>
+{{ data|json_script:"bundle" }}
+<script>window.CARTO_KEY = "{{ carto_key|escapejs }}";</script>
+<script src="{% static 'js/common.js' %}"></script>
+<script>
+(() => {
+  const tabs = document.getElementById("tabs"), bd = document.getElementById("sheet-bd");
+  const close = () => { tabs.classList.remove("open"); bd.classList.remove("on"); };
+  document.getElementById("more-btn").onclick = () => { tabs.classList.toggle("open"); bd.classList.toggle("on"); };
+  bd.onclick = close;
+  if (innerWidth < 900) document.querySelectorAll("details.param").forEach(d => d.open = false);
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

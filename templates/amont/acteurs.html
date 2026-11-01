@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid g-3">
+  <div class="card span-2">
+    <div class="card-h"><div><h3>Surface opérée par opérateur</h3><div class="sub">km², fin 2024 vs novembre 2026</div></div></div>
+    <div id="c-surf" class="chart tall"></div>
+    <div class="source">Superficies DGH 2025 (tableau 1) pour les blocs attribués fin 2024 ; base cartographique AMONT·CI pour les blocs attribués depuis 2025 (CI-707 à Eni, 8 blocs Petrobras, majoritairement ultra-profonds et très vastes).</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Concentration du domaine</h3><div class="sub">Indice Herfindahl-Hirschman sur la surface attribuée (2026)</div></div></div>
+    <div id="c-hhi" class="chart short"></div>
+    <div class="note" id="hhi-txt"></div>
+    <div class="card-h" style="margin-top:18px"><div><h3>Production de brut 2024</h3><div class="sub">Part par opérateur</div></div></div>
+    <div id="c-pop" class="chart xs" style="height:140px"></div>
+  </div>
+</section>
+<h3 style="margin:28px 0 14px;font-size:18px">Fiches opérateurs</h3>
+<section class="grid g-3" id="ops"></section>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const OPC = { ENI: C.s[0], PETROCI: C.s[1], CNR: C.s[2], FOXTROT: C.s[3], MURPHY: C.s[4], PETROBRAS: C.s[6] };
+const col = a => OPC[a.code] || "#8a94a6";
+const act = D.acteurs.filter(a => a.surface_2026 || a.surface_2024).sort((a, b) => a.surface_2026 - b.surface_2026);
+chart("c-surf", {
+  tooltip: { axisPointer: { type: "shadow" }, valueFormatter: v => nf(v) + " km²" },
+  legend: { data: ["Fin 2024", "Nov. 2026"] }, grid: { right: 60 },
+  yAxis: { type: "category", data: act.map(a => a.nom), axisLabel: { color: C.text2 } }, xAxis: { type: "value" },
+  series: [
+    { name: "Fin 2024", type: "bar", data: act.map(a => a.surface_2024), barWidth: 9, barGap: "30%", itemStyle: { color: "#5b6b88", borderRadius: [0, 4, 4, 0] } },
+    { name: "Nov. 2026", type: "bar", data: act.map(a => ({ value: a.surface_2026, itemStyle: { color: col(a) } })), barWidth: 9, itemStyle: { borderRadius: [0, 4, 4, 0] },
+      label: { show: true, position: "right", color: C.text2, fontSize: 11, formatter: p => nf(p.value) } },
+  ],
+});
+const H = D.hhi;
+chart("c-hhi", {
+  legend: false, tooltip: { show: false },
+  series: [{ type: "gauge", min: 0, max: 10000, startAngle: 200, endAngle: -20, radius: "100%", center: ["50%", "62%"],
+    axisLine: { lineStyle: { width: 14, color: [[.15, C.s[2]], [.25, C.s[3]], [1, C.s[7]]] } },
+    pointer: { length: "60%", width: 4, itemStyle: { color: C.text } }, axisTick: { show: false }, splitLine: { show: false },
+    axisLabel: { color: C.muted, fontSize: 10, distance: -34, formatter: v => [0, 1500, 2500, 10000].includes(v) ? nf(v) : "" },
+    detail: { valueAnimation: true, formatter: v => nf(v), color: C.text, fontSize: 26, fontFamily: "Space Grotesk", offsetCenter: [0, "38%"] }, data: [{ value: H }] }],
+});
+$("#hhi-txt").innerHTML = `HHI = <b>${nf(H)}</b> : marché ${H > 2500 ? "<b>fortement concentré</b>" : H > 1500 ? "<b>modérément concentré</b>" : "<b>peu concentré</b>"} (seuils usuels 1 500 / 2 500). Avec ses 8 blocs ultra-profonds, Petrobras devient en 2026 le premier détenteur de surface, devant Eni, mais Eni opère l'essentiel de la production future.`;
+const prodOps = D.acteurs.filter(a => a.petrole_2024 > 0), totP = prodOps.reduce((s, a) => s + a.petrole_2024, 0);
+chart("c-pop", {
+  legend: false, grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
+  tooltip: { trigger: "item", formatter: p => `${p.seriesName} : <b>${nf(p.value, 1)} %</b>` },
+  xAxis: { type: "value", max: 100, show: false }, yAxis: { type: "category", data: [""], show: false },
+  series: prodOps.map((a, i) => ({ name: a.nom, type: "bar", stack: "p", barWidth: 30, data: [100 * a.petrole_2024 / totP],
+    itemStyle: { color: col(a), borderColor: C.surface, borderWidth: 2, borderRadius: i === 0 ? [4, 0, 0, 4] : i === prodOps.length - 1 ? [0, 4, 4, 0] : 0 },
+    label: { show: 100 * a.petrole_2024 / totP > 8, color: "#fff", fontSize: 11, formatter: p => a.code + " " + nf(p.value, 0) + "%" } })),
+});
+const maxS = Math.max(...D.acteurs.map(a => a.surface_2026));
+$("#ops").innerHTML = [...D.acteurs].sort((a, b) => b.petrole_2024 - a.petrole_2024 || b.surface_2026 - a.surface_2026).map(a => `
+  <div class="card op-card fade-in">
+    <div class="op-head"><div class="op-logo" style="background:${col(a)}">${a.code.slice(0, 2)}</div>
+      <div><h3 style="font-size:16px">${esc(a.nom)}</h3><div style="color:${C.muted};font-size:12px">${esc(a.type)} · ${esc(a.pays)}</div></div></div>
+    <dl class="kv" style="margin:4px 0">
+      <dt>Blocs (2026)</dt><dd class="num">${a.blocs_2026.length}${a.blocs_2026.length !== a.blocs_2024.length ? ` <span style="color:${C.muted}">(${a.blocs_2024.length} fin 2024)</span>` : ""}</dd>
+      <dt>Surface opérée</dt><dd class="num">${a.surface_2026 ? nf(a.surface_2026) + " km²" : "non publiée"}${a.surface_2026 && a.blocs_sans_surface ? ` + ${a.blocs_sans_surface} bloc(s) n.d.` : ""}</dd>
+      <dt>Brut 2024</dt><dd class="num">${a.petrole_2024 ? nf(a.petrole_2024 / 366) + " b/j" : "—"}</dd>
+      <dt>Gaz 2024</dt><dd class="num">${a.gaz_2024 ? nf(a.gaz_2024 / 366, 1) + " MMscf/j" : "—"}</dd>
+    </dl>
+    <div class="bar-mini"><i style="width:${100 * a.surface_2026 / maxS}%;background:${col(a)}"></i></div>
+    ${a.champs.length ? `<div style="font-size:12.5px;color:${C.text2}">Gisements : <b style="color:${C.text}">${esc(a.champs.join(", "))}</b></div>` : ""}
+    <div class="tags">${a.blocs_2026.map(b => `<a href="/carte/?bloc=${b}"><span>${b}</span></a>`).join("")}</div>
+  </div>`).join("");
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

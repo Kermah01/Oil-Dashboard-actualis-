@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block actions %}<a class="btn" href="/export/production.csv">Exporter CSV ↓</a>{% endblock %}
+{% block content %}
+<section class="grid g-5" id="kpis"></section>
+
+<section class="grid g-2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Trajectoire de chaque gisement</h3><div class="sub">Pétrole brut, barils par jour</div></div></div>
+    <div id="c-traj" class="chart tall"></div>
+    <div class="source">Source : DGH / PETROCI (tableau 4). Débit journalier = production annuelle / jours de l'année.</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Analyse de déclin des champs matures</h3><div class="sub">Espoir + Baobab + CI-27 + CI-11 · ajustement exponentiel (Arps, b = 0) sur 2019-2024</div></div></div>
+    <div id="c-decl" class="chart tall"></div>
+    <div class="source" id="decl-txt"></div>
+  </div>
+</section>
+
+<section class="grid g-3" style="margin-top:16px">
+  <div class="card span-2">
+    <div class="card-h"><div><h3>Production de gaz naturel par gisement</h3><div class="sub">Milliards de pieds cubes (Bcf) par an</div></div>
+      <div class="seg" id="gz"><button class="on" data-k="abs">Volumes</button><button data-k="pct">Parts</button></div></div>
+    <div id="c-gaz" class="chart"></div>
+    <div class="source">Source : DGH / PETROCI (tableau 6).</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Pouvoir calorifique du gaz</h3><div class="sub">MMBTU par MMSCF</div></div></div>
+    <div id="c-pcs" class="chart"></div>
+    <div class="source">Source : tableau 9. Le gaz de Lion & Panthère est le plus énergétique.</div>
+  </div>
+</section>
+
+<section class="grid g-3" style="margin-top:16px">
+  <div class="card span-2">
+    <div class="card-h"><div><h3>Ventes mensuelles de gaz aux industries</h3><div class="sub">MMSCF par mois · plus la case est claire, plus le volume est élevé</div></div></div>
+    <div id="c-heat" class="chart"></div>
+    <div class="source">Source : DGH / PETROCI (tableau 8). Les industries ne pèsent qu'≈ 1,6 % des volumes vendus ; 91,5 % vont à l'électricité.</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Ventes industrielles annuelles</h3><div class="sub">MMSCF</div></div></div>
+    <div id="c-ind" class="chart"></div>
+  </div>
+</section>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-h"><div><h3>Tableau de production</h3><div class="sub">Pétrole (bbl) et gaz (MMSCF) par gisement</div></div></div>
+  <div class="table-wrap"><table id="tbl"></table></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const A = D.annees, n = A.length, days = y => (y % 4 === 0 ? 366 : 365);
+const prodC = D.ordre_champs.map(nm => D.champs.find(c => c.nom === nm));
+const bal = D.champs.find(c => c.nom === "Baleine").serie;
+const gi = D.gaz_industrie, gy = Object.keys(gi).sort();
+const indTot = gy.map(y => gi[y].reduce((a, b) => a + b, 0));
+const kp = [
+  ["Pétrole brut 2024", big(D.total_petrole[n - 1], 2), "bbl", pct(100 * (D.total_petrole[n - 1] / D.total_petrole[n - 2] - 1)) + " vs 2023"],
+  ["Gaz naturel 2024", nf(D.total_gaz[n - 1] / 1e3, 1), "Bcf", pct(100 * (D.total_gaz[n - 1] / D.total_gaz[n - 2] - 1)) + " vs 2023"],
+  ["Part de Baleine", nf(100 * bal.petrole[n - 1] / D.total_petrole[n - 1], 1), "% du brut", nf(100 * bal.gaz[n - 1] / D.total_gaz[n - 1], 1) + " % du gaz"],
+  ["Déclin des matures", nf(100 * D.tcam_matures, 1), "%/an", "TCAM 2019-2024"],
+  ["Gaz aux industries", nf(indTot.at(-1), 0), "MMSCF", pct(100 * (indTot.at(-1) / indTot.at(-2) - 1)) + " vs 2023"],
+];
+$("#kpis").innerHTML = kp.map(k => `<div class="card kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}<small>${k[2]}</small></div><div class="delta">${k[3]}</div></div>`).join("");
+
+chart("c-traj", {
+  legend: { data: prodC.map(c => c.nom) }, tooltip: { valueFormatter: v => nf(v) + " b/j" },
+  xAxis: { type: "category", data: A, boundaryGap: false }, yAxis: { type: "value" },
+  series: prodC.map(c => ({ name: c.nom, type: "line", data: c.serie.petrole.map((v, i) => Math.round(v / days(A[i]))),
+    symbol: "circle", symbolSize: 8, lineStyle: { width: 2, color: c.couleur }, itemStyle: { color: c.couleur, borderColor: C.surface, borderWidth: 2 },
+    endLabel: { show: true, formatter: p => nf(p.value), color: C.text2, fontSize: 11 } })),
+  grid: { right: 60 },
+});
+
+/* déclin exponentiel : ln(q) = a + b t */
+const mat = D.matures_petrole.map((v, i) => v / days(A[i]));
+const xs = A.slice(1), ys = mat.slice(1).map(Math.log);
+const xm = xs.reduce((a, b) => a + b) / xs.length, ym = ys.reduce((a, b) => a + b) / ys.length;
+const b = xs.reduce((s, x, i) => s + (x - xm) * (ys[i] - ym), 0) / xs.reduce((s, x) => s + (x - xm) ** 2, 0);
+const a = ym - b * xm, horizon = [...A, 2025, 2026, 2027, 2028, 2029, 2030];
+const fit = horizon.map(y => Math.round(Math.exp(a + b * y)));
+const di = 1 - Math.exp(b), demi = Math.log(2) / -b;
+chart("c-decl", {
+  legend: { data: ["Observé", "Tendance ajustée", "Baleine (pour comparaison)"] }, tooltip: { valueFormatter: v => v == null ? "—" : nf(v) + " b/j" },
+  xAxis: { type: "category", data: horizon, boundaryGap: false }, yAxis: { type: "value" },
+  series: [
+    { name: "Observé", type: "line", data: mat.map(Math.round), symbolSize: 8, lineStyle: { width: 2, color: C.s[1] }, itemStyle: { color: C.s[1], borderColor: C.surface, borderWidth: 2 },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "#d9592640" }, { offset: 1, color: "#d9592600" }]) } },
+    { name: "Tendance ajustée", type: "line", data: fit, symbol: "none", lineStyle: { width: 2, type: "dashed", color: C.text2 }, itemStyle: { color: C.text2 },
+      markArea: { silent: true, itemStyle: { color: "rgba(255,255,255,.03)" }, data: [[{ xAxis: 2024 }, { xAxis: 2030 }]] } },
+    { name: "Baleine (pour comparaison)", type: "line", data: bal.petrole.map((v, i) => Math.round(v / days(A[i]))), symbolSize: 8, lineStyle: { width: 2, color: C.s[0] }, itemStyle: { color: C.s[0], borderColor: C.surface, borderWidth: 2 } },
+  ],
+});
+$("#decl-txt").innerHTML = `Déclin annuel ajusté : <b>${nf(100 * di, 1)} %</b> · demi-vie ≈ <b>${nf(demi, 1)} ans</b> · projection 2030 sans investissement : <b>${nf(fit.at(-1))} b/j</b> (contre ${nf(mat[1])} b/j en 2019). Estimation statistique, non une prévision d'opérateur.`;
+
+function gaz(mode) {
+  const tot = D.total_gaz;
+  chart("c-gaz", {
+    legend: { data: prodC.map(c => c.nom) },
+    tooltip: { valueFormatter: v => mode === "pct" ? nf(v, 1) + " %" : nf(v, 1) + " Bcf" },
+    xAxis: { type: "category", data: A }, yAxis: { type: "value", max: mode === "pct" ? 100 : null },
+    series: prodC.map((c, j) => ({ name: c.nom, type: "bar", stack: "g", barWidth: "52%",
+      data: c.serie.gaz.map((v, i) => mode === "pct" ? 100 * v / tot[i] : v / 1e3), itemStyle: barStyle(c.couleur, j === prodC.length - 1) })),
+  });
+}
+gaz($("#gz .on").dataset.k);
+$$("#gz button").forEach(bt => bt.onclick = () => { $$("#gz button").forEach(x => x.classList.toggle("on", x === bt)); gaz(bt.dataset.k); });
+
+chart("c-pcs", {
+  legend: false, tooltip: { valueFormatter: v => v == null ? "—" : nf(v) },
+  grid: { right: 90 },
+  xAxis: { type: "category", data: A, boundaryGap: false }, yAxis: { type: "value", min: 1000 },
+  series: prodC.map(c => ({ name: c.nom, type: "line", data: c.serie.pcs, symbol: "none", lineStyle: { width: 2, color: c.couleur }, itemStyle: { color: c.couleur },
+    endLabel: { show: true, formatter: p => p.seriesName.split(" ")[0], color: C.text2, fontSize: 11 } })),
+});
+
+const hd = []; let mx = 0;
+gy.forEach((y, yi) => gi[y].forEach((v, m) => { hd.push([m, yi, v]); mx = Math.max(mx, v); }));
+chart("c-heat", {
+  legend: false, tooltip: { trigger: "item", formatter: p => `${MOIS[p.value[0]]} ${gy[p.value[1]]} : <b>${nf(p.value[2], 1)} MMSCF</b>` },
+  grid: { left: 8, right: 8, top: 8, bottom: 40 },
+  xAxis: { type: "category", data: MOIS, splitArea: { show: false } }, yAxis: { type: "category", data: gy },
+  visualMap: { min: 40, max: Math.ceil(mx), calculable: false, orient: "horizontal", left: "center", bottom: 0, itemHeight: 140, textStyle: { color: C.muted },
+    inRange: { color: C.blues } },
+  series: [{ type: "heatmap", data: hd, itemStyle: { borderColor: C.surface, borderWidth: 2, borderRadius: 4 }, emphasis: { itemStyle: { borderColor: "#fff" } } }],
+});
+chart("c-ind", {
+  legend: false, tooltip: { valueFormatter: v => nf(v, 0) + " MMSCF" },
+  xAxis: { type: "category", data: gy }, yAxis: { type: "value" },
+  series: [{ type: "bar", data: indTot, barWidth: "50%", itemStyle: { color: C.s[0], borderRadius: [4, 4, 0, 0] },
+    label: { show: true, position: "top", color: C.text2, fontSize: 11, formatter: p => nf(p.value) } }],
+});
+
+$("#tbl").innerHTML = `<thead><tr><th>Gisement</th><th>Produit</th>${A.map(y => `<th class="r">${y}</th>`).join("")}<th class="r">Var. 24/23</th></tr></thead><tbody>` +
+  prodC.flatMap(c => [["petrole", "Pétrole (bbl)"], ["gaz", "Gaz (MMSCF)"]].map(([k, l]) => {
+    const s = c.serie[k], v = s[n - 2] ? 100 * (s[n - 1] / s[n - 2] - 1) : null;
+    return `<tr><td><span class="badge"><i style="background:${c.couleur}"></i>${esc(c.nom)}</span></td><td>${l}</td>${s.map(x => `<td class="r">${x ? nf(x) : "—"}</td>`).join("")}<td class="r ${v > 0 ? "up" : "down"}">${v == null ? "—" : pct(v)}</td></tr>`;
+  })).join("") +
+  `<tr><td><b>Total</b></td><td>Pétrole (bbl)</td>${D.total_petrole.map(x => `<td class="r"><b>${nf(x)}</b></td>`).join("")}<td class="r up">${pct(100 * (D.total_petrole[n - 1] / D.total_petrole[n - 2] - 1))}</td></tr>
+   <tr><td><b>Total</b></td><td>Gaz (MMSCF)</td>${D.total_gaz.map(x => `<td class="r"><b>${nf(x)}</b></td>`).join("")}<td class="r down">${pct(100 * (D.total_gaz[n - 1] / D.total_gaz[n - 2] - 1))}</td></tr></tbody>`;
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block actions %}<a class="btn" href="/export/evenements.csv">Chronologie CSV ↓</a>{% endblock %}
+{% block content %}
+<section class="grid g-5" id="kpis"></section>
+
+<section class="grid g-2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Attributions de blocs par année</h3><div class="sub">Date du CPP des blocs aujourd'hui attribués, par opérateur</div></div></div>
+    <div id="c-cpp" class="chart"></div>
+    <div class="source">Source : DGH (tableau 1) + CPP signés depuis 2025 (CI-707, Petrobras). Ne compte que les blocs encore actifs : 65 CPP ont été signés depuis 2011.</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Forages par type</h3><div class="sub">Nombre de puits, 2016-2024</div></div></div>
+    <div id="c-for" class="chart"></div>
+    <div class="source">Source : DGH (tableau 2).</div>
+  </div>
+</section>
+
+<section class="grid g-3" style="margin-top:16px">
+  <div class="card">
+    <div class="card-h"><div><h3>Efficacité de l'exploration</h3><div class="sub">Puits forés 2011-2024</div></div></div>
+    <div id="c-funnel" class="chart short"></div>
+    <div class="note" id="succ"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Couverture sismique</h3><div class="sub">Cumul à fin 2024</div></div></div>
+    <div id="seis" class="grid" style="grid-template-columns:1fr 1fr;gap:10px"></div>
+    <div class="source">3 campagnes en 2024 : géotechnique CI-12/CI-27 (Fugro), CI-523/CI-525 (Fugro), sismique OBN de 190 km² sur Baobab (Shearwater).</div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div><h3>Puits récents</h3><div class="sub">2024-2026</div></div></div>
+    <div class="table-wrap" style="max-height:290px"><table id="puits"></table></div>
+  </div>
+</section>
+
+<div class="card" style="margin-top:16px">
+  <div class="card-h"><div><h3>Chronologie de l'amont ivoirien</h3><div class="sub">De 1992 à aujourd'hui</div></div><div class="seg" id="cats"></div></div>
+  <div id="c-tl" class="chart" style="height:200px"></div>
+  <style>#tl::before{display:none}</style><ul class="timeline" id="tl" style="columns:2;column-gap:40px;margin-top:10px"></ul>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function PAGE() {
+const I = D.indicateurs, Sm = D.sismique;
+const kp = [["CPP signés 2011-2024", I.cpp_cumules, "", "+ CI-707 (Eni, 2025) et 8 Petrobras (2026)"], ["Puits forés 2011-2024", I.puits_2011_2024, "", `${I.puits_expl_eval} exploration/évaluation`],
+  ["Découvertes & indices", I.decouvertes_indices, "", "sur 2011-2024"], ["Découvertes 2024-2026", D.kpis.decouvertes_2024_2026, "", "Calao, Calao South, Bubale"],
+  ["Sismique 3D", nf(Sm["3d_offshore_km2"]), "km²", "offshore, cumul"]];
+$("#kpis").innerHTML = kp.map(k => `<div class="card kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}<small>${k[2]}</small></div><div class="delta">${k[3]}</div></div>`).join("");
+
+const OPC = { ENI: C.s[0], PETROCI: C.s[1], CNR: C.s[2], FOXTROT: C.s[3], MURPHY: C.s[4], PETROBRAS: C.s[6] };
+const yrs = Object.keys(D.cpp_par_an), ops = [...new Set(yrs.flatMap(y => Object.keys(D.cpp_par_an[y])))];
+const opsMain = ops.filter(o => OPC[o]), autres = ops.filter(o => !OPC[o]);
+const OPN = Object.fromEntries(D.acteurs.map(a => [a.code, a.nom]));
+const serCpp = [...opsMain.map(o => ({ name: OPN[o], data: yrs.map(y => D.cpp_par_an[y][o] || 0), c: OPC[o] })),
+  { name: "Autres", data: yrs.map(y => autres.reduce((s, o) => s + (D.cpp_par_an[y][o] || 0), 0)), c: "#8a94a6" }];
+chart("c-cpp", {
+  tooltip: { axisPointer: { type: "shadow" } },
+  xAxis: { type: "category", data: yrs }, yAxis: { type: "value", minInterval: 1 },
+  series: serCpp.map((s, j) => ({ name: s.name, type: "bar", stack: "c", barWidth: "60%", data: s.data.map(v => v || null), itemStyle: barStyle(s.c, j === serCpp.length - 1) })),
+});
+const FY = Object.keys(D.forages_total).map(Number);
+const ftypes = [["Exploration", C.s[0]], ["Évaluation", C.s[6]], ["Développement", C.s[1]]];
+chart("c-for", {
+  tooltip: { axisPointer: { type: "shadow" } },
+  xAxis: { type: "category", data: FY }, yAxis: { type: "value", minInterval: 1 },
+  series: ftypes.map(([t, c], j) => ({ name: t, type: "bar", stack: "f", barWidth: "55%", data: FY.map(y => (D.forages[t] || {})[y] || null), itemStyle: barStyle(c, j === 2) })),
+});
+chart("c-funnel", {
+  legend: false, tooltip: { trigger: "item", formatter: p => `${p.name} : <b>${p.value}</b>` },
+  series: [{ type: "funnel", left: 0, right: 0, top: 6, bottom: 6, sort: "none", gap: 3, minSize: "28%",
+    label: { position: "inside", color: "#fff", formatter: p => `${p.name} : ${p.value}`, fontSize: 12, fontWeight: 600 }, itemStyle: { borderWidth: 0 },
+    data: [{ name: "Puits forés", value: I.puits_2011_2024, itemStyle: { color: "#1e4a8a" } }, { name: "Exploration / évaluation", value: I.puits_expl_eval, itemStyle: { color: C.s[0] } },
+      { name: "Découvertes & indices", value: I.decouvertes_indices, itemStyle: { color: C.amber } }] }],
+});
+$("#succ").innerHTML = `Taux de succès exploratoire : <b>${nf(100 * I.decouvertes_indices / I.puits_expl_eval, 1)} %</b> (${I.decouvertes_indices}/${I.puits_expl_eval}). Les « indices » sont inclus : le taux de succès <i>commercial</i> est plus faible.`;
+$("#seis").innerHTML = [["2D offshore", Sm["2d_offshore_km"], "km"], ["2D onshore", Sm["2d_onshore_km"], "km"], ["3D offshore", Sm["3d_offshore_km2"], "km²"], ["4D offshore", Sm["4d_offshore_km2"], "km²"]]
+  .map(([l, v, u]) => `<div class="card kpi" style="box-shadow:none;background:var(--surface-2)"><div class="lbl">${l}</div><div class="val" style="font-size:22px">${big(v, 1)}<small>${u}</small></div></div>`).join("");
+const RC = { "Découverte": C.s[2], "Sec": C.s[7], "Non commercial": C.s[3] };
+$("#puits").innerHTML = `<thead><tr><th>Puits</th><th>Bloc</th><th>Résultat</th></tr></thead><tbody>` +
+  [...D.puits].sort((a, b) => b.annee - a.annee).map(p => `<tr><td title="${esc(p.note)}">${esc(p.nom)} <span style="color:${C.muted}">${p.annee}</span></td><td><a href="/carte/?bloc=${p.bloc_code}" class="chip">${p.bloc_code}</a></td><td><span class="badge"><i style="background:${RC[p.resultat] || C.s[0]}"></i>${esc(p.resultat)}</span></td></tr>`).join("") + "</tbody>";
+
+const catC = { contrat: C.s[0], decouverte: C.s[2], production: C.s[1], forage: C.s[4], politique: C.s[6] };
+const catL = { contrat: "Contrats", decouverte: "Découvertes", production: "Production", forage: "Forages", politique: "Politique" };
+let cat = "";
+$("#cats").innerHTML = `<button class="on" data-c="">Tout</button>` + Object.entries(catL).map(([k, l]) => `<button data-c="${k}">${l}</button>`).join("");
+function tl() {
+  const ev = D.evenements.filter(e => !cat || e.cat === cat);
+  $("#tl").innerHTML = ev.map(e => `<li style="--c:${catC[e.cat]};break-inside:avoid"><div class="dt">${(e.date.endsWith("-01-01") ? e.date.slice(0, 4) : new Date(e.date).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }))} · ${e.cat_label}${e.bloc ? ` · <a href="/carte/?bloc=${e.bloc}" style="text-decoration:underline">${e.bloc}</a>` : ""}</div><div class="tt">${esc(e.titre)}</div><div class="dd">${esc(e.description)} <span style="color:${C.muted}">— ${esc(e.source)}</span></div></li>`).join("");
+  chart("c-tl", {
+    legend: false, grid: { left: 10, right: 20, top: 10, bottom: 10 },
+    tooltip: { trigger: "item", formatter: p => `<b>${esc(p.data.t)}</b><br>${p.data.d}` },
+    xAxis: { type: "time", min: "1991-01-01", max: "2027-01-01" }, yAxis: { type: "category", data: Object.values(catL), axisLabel: { color: C.text2 } },
+    series: [{ type: "scatter", symbolSize: 13, data: ev.map(e => ({ value: [e.date, catL[e.cat]], t: e.titre, d: new Date(e.date).toLocaleDateString("fr-FR"), itemStyle: { color: catC[e.cat], borderColor: C.surface, borderWidth: 2 } })) }],
+  });
+}
+tl();
+$$("#cats button").forEach(b => b.onclick = () => { $$("#cats button").forEach(x => x.classList.toggle("on", x === b)); cat = b.dataset.c; tl(); });
+}
+PAGE();
+onTheme(PAGE);
+</script>
+{% endblock %}
